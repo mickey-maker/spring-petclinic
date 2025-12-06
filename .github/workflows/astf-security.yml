@@ -49,8 +49,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           mvn -B verify sonar:sonar \
-          -Dsonar.projectKey=YOUR_PROJECT_KEY \
-          -Dsonar.organization=YOUR_ORG_KEY \
+          -Dsonar.projectKey=mickey-maker_spring-petclinic \
+          -Dsonar.organization=mickey-maker \
           -Dsonar.host.url=https://sonarcloud.io \
           -Dsonar.token=${{ secrets.SONAR_TOKEN }}
 
