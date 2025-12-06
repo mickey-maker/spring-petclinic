@@ -70,30 +70,21 @@ jobs:
         run: snyk test --json > astf-python/data/sca.json || true
 
       # =========================
-      # 6️⃣ START SPRING BOOT ✅
-      # =========================
-      - name: Start Spring Boot App
-        run: |
-          nohup mvn spring-boot:run > app.log 2>&1 &
-          sleep 25
-
-      # =========================
-      # 7️⃣ DAST — OWASP ZAP ✅✅✅
+      # 6️⃣ DAST — OWASP ZAP ✅ (OFFICIAL ACTION)
       # =========================
       - name: Run OWASP ZAP Baseline Scan
-        run: |
-          docker pull zaproxy/zap-stable
-          docker run --rm \
-            -v $PWD:/zap/wrk/:rw \
-            zaproxy/zap-stable zap-baseline.py \
-            -t http://example.com \
-            -J /zap/wrk/dast.json || true
+        uses: zaproxy/action-baseline@v0.11.0
+        with:
+          target: "http://example.com"
+          artifact_name: "zap-report"
+          cmd_options: "-J dast.json"
 
       - name: Move DAST output into ASTF folder
-        run: mv dast.json astf-python/data/dast.json || true
+        run: |
+          mv dast.json astf-python/data/dast.json || true
 
       # =========================
-      # 8️⃣ SETUP PYTHON ✅
+      # 7️⃣ SETUP PYTHON ✅
       # =========================
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -104,24 +95,24 @@ jobs:
         run: pip install pandas numpy scikit-learn matplotlib seaborn
 
       # =========================
-      # 9️⃣ JSON MERGE ✅
+      # 8️⃣ JSON MERGE ✅
       # =========================
       - name: Merge SAST + DAST + SCA
         run: python astf-python/json_combiner.py
 
       # =========================
-      # 🔟 ASTF TRIAGE + METRICS ✅
+      # 9️⃣ ASTF TRIAGE + METRICS ✅
       # =========================
       - name: Run ASTF Engine
         run: python astf-python/astf_engine.py
 
       # =========================
-      # 1️⃣1️⃣ ARCHIVE THESIS RESULTS ✅
+      # 🔟 ARCHIVE ALL RESULTS ✅
       # =========================
       - name: Upload ASTF Outputs
         uses: actions/upload-artifact@v4
         with:
           name: astf-results
-          path:
+          path: |
             astf-python/output/
             astf-python/combined_astf.json
