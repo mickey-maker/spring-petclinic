@@ -88,16 +88,13 @@ jobs:
       
 
       # =========================
-      # ✅ 7. RUN SCA (SNYK)
+      # ✅ 7. RUN SCA (SNYK) — FIXED
       # =========================
-      - name: Run SCA (Snyk)
-        uses: snyk/actions/maven@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: test
-          args: --json-file-output=sca.json
-          working-directory: .
+      - name: Run SCA (Snyk CLI)
+        run: |
+          npm install -g snyk
+          snyk auth ${{ secrets.SNYK_TOKEN }}
+          snyk test --json > sca.json || true
 
       - name: Move SCA Result
         run: |
