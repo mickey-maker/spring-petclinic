@@ -85,23 +85,20 @@ jobs:
       
 
       # =========================
-      # ✅ 7. RUN DAST (OWASP ZAP) — FINAL FIX
+      # ✅ 7. RUN DAST (OWASP ZAP)
       # =========================
+      - name: Prepare DAST Output Folder
+        run: |
+          mkdir -p astf-python/data
+
       - name: Run DAST (OWASP ZAP)
         run: |
           docker run --rm --network=host \
             -v $(pwd):/zap/wrk/:rw \
             -t ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py \
             -t http://127.0.0.1:8080 \
-            -J dast.json \
-            -r zap-report.html || true
-    
-
-      - name: Move DAST Result
-        run: |
-          mkdir -p astf-python/data
-          mv dast.json astf-python/data/dast.json || echo '{}' > astf-python/data/dast.json
-          
+            -J /zap/wrk/astf-python/data/dast.json \
+            -r /zap/wrk/zap-report.html || true
       
 
       # =========================
