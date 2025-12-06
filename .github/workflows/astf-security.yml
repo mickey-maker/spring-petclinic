@@ -9,6 +9,10 @@ on:
 jobs:
   astf-security:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: read
+      issues: read
 
     steps:
 
@@ -28,7 +32,7 @@ jobs:
           java-version: '17'
 
       # =========================
-      # ✅ 3. SAST - SONARCLOUD (SCAN)
+      # ✅ 3. RUN SAST (SONARCLOUD)
       # =========================
       - name: Run SAST (SonarCloud)
         env:
@@ -40,7 +44,7 @@ jobs:
           -Dsonar.host.url=https://sonarcloud.io
 
       # =========================
-      # ✅ 3B. EXPORT SAST.JSON ✅✅✅ (THIS WAS MISSING)
+      # ✅ 4. EXPORT SAST.JSON
       # =========================
       - name: Export SAST JSON from SonarCloud
         env:
@@ -48,11 +52,11 @@ jobs:
         run: |
           mkdir -p astf-python/data
           curl -s -u $SONAR_TOKEN: \
-          "https://sonarcloud.io/api/issues/search?componentKeys=mickey-maker_spring-petclinic&types=VULNERABILITY,BUG,CODE_SMELL&ps=500" \
-          -o astf-python/data/sast.json
+          "https://sonarcloud.io/api/issues/search?componentKeys=mickey-maker_spring-petclinic&types=BUG,VULNERABILITY,CODE_SMELL&ps=500" \
+          > astf-python/data/sast.json
 
       # =========================
-      # ✅ 4. SCA - SNYK
+      # ✅ 5. RUN SCA (SNYK)
       # =========================
       - name: Install Snyk
         run: npm install -g snyk
@@ -62,25 +66,47 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: snyk auth $SNYK_TOKEN
 
-      - name: Run SCA (Snyk)
+      - name: Run Snyk Scan
         run: |
           mkdir -p astf-python/data
-          snyk test --json > astf-python/data/sca.json || echo "{}" > astf-python/data/sca.json
+          snyk test --json > astf-python/data/sca_raw.json || true
 
       # =========================
-      # ✅ 5. DAST - OWASP ZAP (SAFE MODE ✅✅✅)
+      # ✅ 6. EXPORT DEPENDABOT → sca.json
       # =========================
-      - name: Run OWASP ZAP Baseline Scan
+      - name: Export Dependabot Alerts as SCA JSON
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker run --rm -v $(pwd):/zap/wrk/:rw \
-            ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t http://example.com -J zap_report.json || true
-
-          mkdir -p astf-python/data
-          cp zap_report.json astf-python/data/dast.json || echo "{}" > astf-python/data/dast.json
+          curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/mickey-maker/spring-petclinic/dependabot/alerts" \
+          > astf-python/data/sca.json
 
       # =========================
-      # ✅ 6. SETUP PYTHON
+      # ✅ 7. RUN DAST (ZAP → GITHUB ISSUES)
+      # =========================
+      - name: Run ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.11.0
+        with:
+          target: 'http://example.com'
+          fail_action: false
+
+      # =========================
+      # ✅ 8. EXPORT ZAP ISSUES → dast.json
+      # =========================
+      - name: Export ZAP Issues as DAST JSON
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p astf-python/data
+          curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/mickey-maker/spring-petclinic/issues?state=open" \
+          > astf-python/data/dast.json
+
+      # =========================
+      # ✅ 9. SETUP PYTHON
       # =========================
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -91,19 +117,19 @@ jobs:
         run: pip install pandas numpy
 
       # =========================
-      # ✅ 7. JSON MERGE ✅✅✅
+      # ✅ 🔟 JSON MERGE
       # =========================
       - name: Merge SAST + DAST + SCA
         run: python astf-python/json_combiner.py
 
       # =========================
-      # ✅ 8. ASTF TRIAGE + METRICS ✅✅✅
+      # ✅ 1️⃣1️⃣ ASTF TRIAGE + METRICS
       # =========================
       - name: Run ASTF Engine
         run: python astf-python/astf_engine.py
 
       # =========================
-      # ✅ 9. UPLOAD FINAL RESULTS ✅ (NO ARTIFACT BUG)
+      # ✅ 1️⃣2️⃣ UPLOAD FINAL THESIS RESULTS
       # =========================
       - name: Upload ASTF Results
         uses: actions/upload-artifact@v4
@@ -112,4 +138,3 @@ jobs:
           path: |
             astf-python/output/
             astf-python/combined_astf.json
-            astf-python/data/
