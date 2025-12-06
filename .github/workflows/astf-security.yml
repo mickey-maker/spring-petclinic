@@ -44,7 +44,7 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
 
       # =========================
-      # 4️⃣ SAST — SONARCLOUD ✅ (FIXED)
+      # 4️⃣ SAST — SONARCLOUD ✅
       # =========================
       - name: Run SAST (SonarCloud)
         env:
@@ -70,17 +70,27 @@ jobs:
         run: snyk test --json > astf-python/data/sca.json || true
 
       # =========================
-      # 6️⃣ DAST — OWASP ZAP ✅ (DOCKER SAFE MODE)
+      # 6️⃣ START SPRING BOOT ✅
+      # =========================
+      - name: Start Spring Boot App
+        run: |
+          nohup mvn spring-boot:run > app.log 2>&1 &
+          sleep 25
+
+      # =========================
+      # 7️⃣ DAST — OWASP ZAP ✅✅✅
       # =========================
       - name: Run OWASP ZAP Baseline Scan
         run: |
-          docker run -t owasp/zap2docker-stable \
-            zap-baseline.py -t http://example.com -J dast.json || true
+          docker pull zaproxy/zap2docker-stable
+          
+          docker run -t zaproxy/zap2docker-stable \
+            zap-baseline.py -t http://localhost:8080 -J dast.json || true
           
           mv dast.json astf-python/data/dast.json
 
       # =========================
-      # 7️⃣ SETUP PYTHON ✅
+      # 8️⃣ SETUP PYTHON ✅
       # =========================
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -91,19 +101,19 @@ jobs:
         run: pip install pandas numpy scikit-learn matplotlib seaborn
 
       # =========================
-      # 8️⃣ JSON MERGE ✅
+      # 9️⃣ JSON MERGE ✅
       # =========================
       - name: Merge SAST + DAST + SCA
         run: python astf-python/json_combiner.py
 
       # =========================
-      # 9️⃣ ASTF TRIAGE + METRICS ✅
+      # 🔟 ASTF TRIAGE + METRICS ✅
       # =========================
       - name: Run ASTF Engine
         run: python astf-python/astf_engine.py
 
       # =========================
-      # 🔟 ARCHIVE THESIS RESULTS ✅
+      # 1️⃣1️⃣ ARCHIVE THESIS RESULTS ✅
       # =========================
       - name: Upload ASTF Outputs
         uses: actions/upload-artifact@v4
