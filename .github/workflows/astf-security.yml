@@ -112,3 +112,4 @@ jobs:
           path: |
             astf-python/output/
             astf-python/combined_astf.json
+            astf-python/data/
