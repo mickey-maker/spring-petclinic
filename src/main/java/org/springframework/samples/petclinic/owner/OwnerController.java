@@ -15,6 +15,10 @@
  */
 package org.springframework.samples.petclinic.owner;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -172,5 +176,24 @@ class OwnerController {
 		mav.addObject(owner);
 		return mav;
 	}
+
+	// ================================
+// ❌ INTENTIONAL SQL INJECTION
+// ✅ FOR ASTF + SAST RESEARCH TEST
+// ================================
+	public void vulnerableQuery(String name) throws Exception {
+
+		Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "");
+		Statement stmt = conn.createStatement();
+
+		// ❌ SQL Injection vulnerability (DO NOT FIX)
+		String query = "SELECT * FROM owners WHERE first_name = '" + name + "'";
+		ResultSet rs = stmt.executeQuery(query);
+
+		while (rs.next()) {
+			System.out.println(rs.getString("first_name"));
+		}
+	}
+
 
 }

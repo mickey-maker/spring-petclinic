@@ -1,49 +1,77 @@
 import json
 import os
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-OUTPUT_FILE = os.path.join(BASE_DIR, "combined_astf.json")
+DATA_DIR = "astf-python/data"
+OUTPUT_FILE = "astf-python/combined_astf.json"
 
-FILES = ["sast.json", "dast.json", "sca.json"]
+FILES = {
+    "sast": "sast.json",
+    "dast": "dast.json",
+    "sca": "sca.json"
+}
 
 def load_json_safe(path):
     if not os.path.exists(path):
-        print(f"[WARN] Missing file: {os.path.basename(path)}")
+        print(f"[WARN] Missing file: {path}")
+        return []
+
+    if os.stat(path).st_size == 0:
+        print(f"[WARN] Empty file: {path}")
         return []
 
     try:
         with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict) and "issues" in data:
-                return data["issues"]
-            if isinstance(data, dict) and "alerts" in data:
-                return data["alerts"]
-            if isinstance(data, dict) and "vulnerabilities" in data:
-                return data["vulnerabilities"]
-            return []
-    except Exception:
-        print(f"[WARN] Empty or invalid JSON: {os.path.basename(path)}")
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Failed to parse JSON {path}: {e}")
         return []
 
-def main():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    combined = []
+combined = []
 
-    print("[ASTF] Loading SAST, DAST & SCA JSON files...")
+print("[ASTF] Loading SAST, DAST & SCA JSON files...")
 
-    for fname in FILES:
-        path = os.path.join(DATA_DIR, fname)
-        data = load_json_safe(path)
-        combined.extend(data)
+# ✅ SAST — SonarCloud issues (VULN + BUG + CODE SMELL)
+sast_data = load_json_safe(os.path.join(DATA_DIR, FILES["sast"]))
+if "issues" in sast_data:
+    for issue in sast_data["issues"]:
+        combined.append({
+            "tool": "SAST",
+            "type": issue.get("type", "UNKNOWN"),          # ✅ BUG / VULNERABILITY / CODE_SMELL
+            "severity": issue.get("severity", "INFO"),
+            "message": issue.get("message", ""),
+            "file": issue.get("component", ""),
+            "rule": issue.get("rule", "")
+        })
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(combined, f, indent=2)
+# ✅ DAST — ZAP
+dast_data = load_json_safe(os.path.join(DATA_DIR, FILES["dast"]))
+if "site" in dast_data:
+    for site in dast_data["site"]:
+        for alert in site.get("alerts", []):
+            combined.append({
+                "tool": "DAST",
+                "type": "VULNERABILITY",
+                "severity": alert.get("riskdesc", ""),
+                "message": alert.get("alert", ""),
+                "file": alert.get("uri", ""),
+                "rule": alert.get("pluginid", "")
+            })
 
-    print(f"[ASTF] ✅ Combined ASTF file created: {OUTPUT_FILE}")
-    print(f"[ASTF] ✅ Total merged alerts: {len(combined)}")
+# ✅ SCA — Snyk
+sca_data = load_json_safe(os.path.join(DATA_DIR, FILES["sca"]))
+if "vulnerabilities" in sca_data:
+    for vuln in sca_data["vulnerabilities"]:
+        combined.append({
+            "tool": "SCA",
+            "type": "VULNERABILITY",
+            "severity": vuln.get("severity", ""),
+            "message": vuln.get("title", ""),
+            "file": vuln.get("packageName", ""),
+            "rule": vuln.get("id", "")
+        })
 
-if __name__ == "__main__":
-    main()
+with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    json.dump(combined, f, indent=2)
+
+print(f"[ASTF] ✅ Combined ASTF file created: {OUTPUT_FILE}")
+print(f"[ASTF] ✅ Total merged alerts: {len(combined)}")

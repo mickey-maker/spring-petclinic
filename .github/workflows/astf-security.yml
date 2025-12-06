@@ -48,7 +48,7 @@ jobs:
         run: |
           mkdir -p astf-python/data
           curl -s -u $SONAR_TOKEN: \
-          "https://sonarcloud.io/api/issues/search?componentKeys=mickey-maker_spring-petclinic&types=VULNERABILITY,BUG&ps=500" \
+          "https://sonarcloud.io/api/issues/search?componentKeys=mickey-maker_spring-petclinic&types=VULNERABILITY,BUG,CODE_SMELL&ps=500" \
           -o astf-python/data/sast.json
 
       # =========================
