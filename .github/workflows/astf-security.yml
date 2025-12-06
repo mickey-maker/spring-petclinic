@@ -28,7 +28,7 @@ jobs:
           java-version: '17'
 
       # =========================
-      # ✅ 3. SAST - SONARCLOUD
+      # ✅ 3. SAST - SONARCLOUD (SCAN)
       # =========================
       - name: Run SAST (SonarCloud)
         env:
@@ -38,6 +38,18 @@ jobs:
           -Dsonar.projectKey=mickey-maker_spring-petclinic \
           -Dsonar.organization=mickey-maker \
           -Dsonar.host.url=https://sonarcloud.io
+
+      # =========================
+      # ✅ 3B. EXPORT SAST.JSON ✅✅✅ (THIS WAS MISSING)
+      # =========================
+      - name: Export SAST JSON from SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mkdir -p astf-python/data
+          curl -s -u $SONAR_TOKEN: \
+          "https://sonarcloud.io/api/issues/search?componentKeys=mickey-maker_spring-petclinic&types=VULNERABILITY,BUG&ps=500" \
+          -o astf-python/data/sast.json
 
       # =========================
       # ✅ 4. SCA - SNYK
@@ -56,7 +68,7 @@ jobs:
           snyk test --json > astf-python/data/sca.json || echo "{}" > astf-python/data/sca.json
 
       # =========================
-      # ✅ 5. DAST - OWASP ZAP (MANUAL SAFE MODE ✅✅✅)
+      # ✅ 5. DAST - OWASP ZAP (SAFE MODE ✅✅✅)
       # =========================
       - name: Run OWASP ZAP Baseline Scan
         run: |
@@ -79,19 +91,19 @@ jobs:
         run: pip install pandas numpy
 
       # =========================
-      # ✅ 7. JSON MERGE
+      # ✅ 7. JSON MERGE ✅✅✅
       # =========================
       - name: Merge SAST + DAST + SCA
         run: python astf-python/json_combiner.py
 
       # =========================
-      # ✅ 8. ASTF TRIAGE + METRICS
+      # ✅ 8. ASTF TRIAGE + METRICS ✅✅✅
       # =========================
       - name: Run ASTF Engine
         run: python astf-python/astf_engine.py
 
       # =========================
-      # ✅ 9. UPLOAD FINAL RESULTS (NO NAME BUG ✅)
+      # ✅ 9. UPLOAD FINAL RESULTS ✅ (NO ARTIFACT BUG)
       # =========================
       - name: Upload ASTF Results
         uses: actions/upload-artifact@v4
