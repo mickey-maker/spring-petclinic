@@ -82,9 +82,9 @@ jobs:
       # =========================
       - name: Run OWASP ZAP Baseline Scan
         run: |
-          docker pull zaproxy/zap2docker-stable
+          docker pull ghcr.io/zaproxy/zap-stable
           
-          docker run -t zaproxy/zap2docker-stable \
+          docker run -t ghcr.io/zaproxy/zap-stable \
             zap-baseline.py -t http://localhost:8080 -J dast.json || true
           
           mv dast.json astf-python/data/dast.json
