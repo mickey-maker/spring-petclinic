@@ -87,6 +87,7 @@ jobs:
           fail_action: false
           allow_issue_writing: false
           cmd_options: '-J dast.json'
+          artifact_name: 'disable'
 
       - name: Move DAST output into ASTF data folder
         run: mv dast.json astf-python/data/dast.json
@@ -121,4 +122,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: astf-results
-          path: astf-python/output/
+          path:
+            astf-python/output/
+            astf-python/combined_astf.json
