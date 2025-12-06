@@ -1,98 +1,49 @@
 import json
-from pathlib import Path
+import os
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-OUTPUT_FILE = BASE_DIR / "combined_astf.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+OUTPUT_FILE = os.path.join(BASE_DIR, "combined_astf.json")
 
+FILES = ["sast.json", "dast.json", "sca.json"]
 
-def safe_load_json(path: Path):
-    if not path.exists():
-        print(f"[WARN] Missing file: {path.name}")
-        return {}
+def load_json_safe(path):
+    if not os.path.exists(path):
+        print(f"[WARN] Missing file: {os.path.basename(path)}")
+        return []
 
     try:
-        text = path.read_text(encoding="utf-8").strip()
-        if not text:
-            print(f"[WARN] Empty file: {path.name}")
-            return {}
-        return json.loads(text)
-    except Exception as e:
-        print(f"[ERROR] Failed to parse JSON {path.name}: {e}")
-        return {}
-
-
-def extract_dast_alerts(dast_raw):
-    alerts = []
-
-    if isinstance(dast_raw, dict):
-        if "alerts" in dast_raw:
-            return dast_raw["alerts"]
-
-        if "site" in dast_raw:
-            sites = dast_raw.get("site", [])
-            if isinstance(sites, dict):
-                sites = [sites]
-            for site in sites:
-                alerts.extend(site.get("alerts", []))
-
-    return alerts
-
-
-def extract_sca(sca_raw):
-    if isinstance(sca_raw, dict):
-        return sca_raw.get("vulnerabilities", [])
-    if isinstance(sca_raw, list):
-        return sca_raw
-    return []
-
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict) and "issues" in data:
+                return data["issues"]
+            if isinstance(data, dict) and "alerts" in data:
+                return data["alerts"]
+            if isinstance(data, dict) and "vulnerabilities" in data:
+                return data["vulnerabilities"]
+            return []
+    except Exception:
+        print(f"[WARN] Empty or invalid JSON: {os.path.basename(path)}")
+        return []
 
 def main():
-    print("[ASTF] Loading SAST, DAST & SCA JSON files...")
-
-    sast = safe_load_json(DATA_DIR / "sast.json")
-    dast = safe_load_json(DATA_DIR / "dast.json")
-    sca = safe_load_json(DATA_DIR / "sca.json")
-
+    os.makedirs(DATA_DIR, exist_ok=True)
     combined = []
 
-    # ---------- SAST ----------
-    for issue in sast.get("issues", []):
-        combined.append({
-            "source": "SAST",
-            "rule_id": issue.get("rule"),
-            "severity": issue.get("severity", "LOW").upper(),
-            "location": f"{issue.get('component')}:{issue.get('line', 0)}",
-            "description": issue.get("message")
-        })
+    print("[ASTF] Loading SAST, DAST & SCA JSON files...")
 
-    # ---------- DAST ----------
-    for alert in extract_dast_alerts(dast):
-        combined.append({
-            "source": "DAST",
-            "rule_id": alert.get("alert"),
-            "severity": (alert.get("risk") or "LOW").upper(),
-            "location": alert.get("url"),
-            "description": alert.get("description")
-        })
+    for fname in FILES:
+        path = os.path.join(DATA_DIR, fname)
+        data = load_json_safe(path)
+        combined.extend(data)
 
-    # ---------- SCA ----------
-    for v in extract_sca(sca):
-        loc = " > ".join(v.get("from", [])) if v.get("from") else v.get("name")
-
-        combined.append({
-            "source": "SCA",
-            "rule_id": v.get("id"),
-            "severity": v.get("severity", "LOW").upper(),
-            "location": loc,
-            "description": v.get("title")
-        })
-
-    OUTPUT_FILE.write_text(json.dumps(combined, indent=2), encoding="utf-8")
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(combined, f, indent=2)
 
     print(f"[ASTF] ✅ Combined ASTF file created: {OUTPUT_FILE}")
     print(f"[ASTF] ✅ Total merged alerts: {len(combined)}")
-
 
 if __name__ == "__main__":
     main()
