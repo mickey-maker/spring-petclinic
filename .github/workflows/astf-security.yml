@@ -72,25 +72,40 @@ jobs:
       
 
       # =========================
-      # ✅ 6. RUN DAST (OWASP ZAP)
+      # ✅ 6. WAIT FOR APP TO BE READY (CRITICAL FIX)
+      # =========================
+      - name: Wait for Spring Boot
+        run: |
+          echo "Waiting for Spring Boot to be ready..."
+          for i in {1..20}; do
+            curl -s http://127.0.0.1:8080 && break
+            echo "Still waiting..."
+            sleep 5
+          done
+      
+
+      # =========================
+      # ✅ 7. RUN DAST (OWASP ZAP) — FINAL FIX
       # =========================
       - name: Run DAST (OWASP ZAP)
         run: |
           docker run --rm --network=host \
             -v $(pwd):/zap/wrk/:rw \
-            -t owasp/zap2docker-stable zap-full-scan.py \
+            -t ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py \
             -t http://127.0.0.1:8080 \
             -J dast.json \
             -r zap-report.html || true
+    
 
       - name: Move DAST Result
         run: |
           mkdir -p astf-python/data
           mv dast.json astf-python/data/dast.json || echo '{}' > astf-python/data/dast.json
+          
       
 
       # =========================
-      # ✅ 7. RUN SCA (SNYK) — FIXED
+      # ✅ 8. RUN SCA (SNYK) — FIXED
       # =========================
       - name: Run SCA (Snyk CLI)
         run: |
@@ -105,7 +120,7 @@ jobs:
       
 
       # =========================
-      # ✅ 8. SETUP PYTHON
+      # ✅ 9. SETUP PYTHON
       # =========================
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -114,7 +129,7 @@ jobs:
 
 
       # =========================
-      # ✅ 9. INSTALL PYTHON DEPENDENCIES
+      # ✅ 10. INSTALL PYTHON DEPENDENCIES
       # =========================
       - name: Install Python Dependencies
         run: |
@@ -122,7 +137,7 @@ jobs:
       
 
       # =========================
-      # ✅ 10. RUN ASTF JSON COMBINER
+      # ✅ 11. RUN ASTF JSON COMBINER
       # =========================
       - name: Run ASTF JSON Combiner
         run: |
@@ -130,7 +145,7 @@ jobs:
       
 
       # =========================
-      # ✅ 11. RUN ASTF ENGINE (TRIAGE + METRICS)
+      # ✅ 12. RUN ASTF ENGINE (TRIAGE + METRICS)
       # =========================
       - name: Run ASTF Engine
         run: |
@@ -138,7 +153,7 @@ jobs:
       
 
       # =========================
-      # ✅ 12. UPLOAD FINAL RESULTS
+      # ✅ 13. UPLOAD FINAL RESULTS
       # =========================
       - name: Upload ASTF Results
         uses: actions/upload-artifact@v4
