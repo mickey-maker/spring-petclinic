@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # =========================
       # ✅ 1. CHECKOUT CODE
       # =========================
@@ -51,21 +52,20 @@ jobs:
 
       - name: Run SCA (Snyk)
         run: |
+          mkdir -p astf-python/data
           snyk test --json > astf-python/data/sca.json || echo "{}" > astf-python/data/sca.json
 
       # =========================
-      # ✅ 5. DAST - OWASP ZAP
+      # ✅ 5. DAST - OWASP ZAP (MANUAL SAFE MODE ✅✅✅)
       # =========================
-      - name: Run ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.11.0
-        with:
-          target: 'http://example.com'
-          format: 'JSON'
-          output: 'dast.json'
-
-      - name: Move DAST Output
+      - name: Run OWASP ZAP Baseline Scan
         run: |
-          mv dast.json astf-python/data/dast.json || echo "{}" > astf-python/data/dast.json
+          docker run --rm -v $(pwd):/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://example.com -J zap_report.json || true
+
+          mkdir -p astf-python/data
+          cp zap_report.json astf-python/data/dast.json || echo "{}" > astf-python/data/dast.json
 
       # =========================
       # ✅ 6. SETUP PYTHON
@@ -91,12 +91,12 @@ jobs:
         run: python astf-python/astf_engine.py
 
       # =========================
-      # ✅ 9. UPLOAD FINAL RESULTS
+      # ✅ 9. UPLOAD FINAL RESULTS (NO NAME BUG ✅)
       # =========================
       - name: Upload ASTF Results
         uses: actions/upload-artifact@v4
         with:
-          name: astf-results
+          name: astf-results-final
           path: |
             astf-python/output/
             astf-python/combined_astf.json
