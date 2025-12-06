@@ -1,0 +1,926 @@
+[
+  {
+    "source": "SAST",
+    "rule_id": "java:S1700",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/java/org/springframework/samples/petclinic/vet/Vets.java:33",
+    "description": "Rename field \"vets\""
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1117",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/java/org/springframework/samples/petclinic/model/NamedEntity.java:47",
+    "description": "Rename \"name\" which hides the field declared at line 33."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:4371",
+    "description": "Unexpected duplicate selector \":root,\r\n[data-bs-theme=\"light\"]\", first used at line 19 (no-duplicate-selectors)"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:4375",
+    "description": "Unexpected duplicate selector \"[data-bs-theme=\"dark\"]\", first used at line 139"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:5064",
+    "description": "Unexpected duplicate selector \":root,\r\n[data-bs-theme=\"light\"]\", first used at line 19 (no-duplicate-selectors)"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:5070",
+    "description": "Unexpected duplicate selector \"[data-bs-theme=\"dark\"]\", first used at line 139"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/fragments/layout.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/createOrUpdateOwnerForm.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/createOrUpdateOwnerForm.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/findOwners.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/findOwners.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownerDetails.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownerDetails.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6827",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownersList.html:40",
+    "description": "Anchors must have content and the content must be accessible by a screen reader."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/pets/createOrUpdatePetForm.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/pets/createOrUpdatePetForm.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/pets/createOrUpdateVisitForm.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/pets/createOrUpdateVisitForm.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/vets/vetList.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/vets/vetList.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1117",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java:166",
+    "description": "Rename \"types\" which hides the field declared at line 79."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/fragments/inputField.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/fragments/inputField.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/fragments/selectField.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/fragments/selectField.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6827",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownersList.html:44",
+    "description": "Anchors must have content and the content must be accessible by a screen reader."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6827",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownersList.html:49",
+    "description": "Anchors must have content and the content must be accessible by a screen reader."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6827",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownersList.html:54",
+    "description": "Anchors must have content and the content must be accessible by a screen reader."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6853",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/pets/createOrUpdatePetForm.html:15",
+    "description": "A form label must be associated with a control."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6827",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/vets/vetList.html:35",
+    "description": "Anchors must have content and the content must be accessible by a screen reader."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6827",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/vets/vetList.html:40",
+    "description": "Anchors must have content and the content must be accessible by a screen reader."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6827",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/vets/vetList.html:45",
+    "description": "Anchors must have content and the content must be accessible by a screen reader."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6827",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/vets/vetList.html:50",
+    "description": "Anchors must have content and the content must be accessible by a screen reader."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S3776",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/system/I18nPropertiesSyncTest.java:40",
+    "description": "Refactor this method to reduce its Cognitive Complexity from 17 to the 15 allowed."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6853",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/findOwners.html:12",
+    "description": "A form label must be associated with a control."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6853",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/fragments/inputField.html:10",
+    "description": "A form label must be associated with a control."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S6853",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/fragments/selectField.html:10",
+    "description": "A form label must be associated with a control."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S115",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetValidatorTests.java:51",
+    "description": "Rename this constant name to match the regular expression '^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$'."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S115",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetValidatorTests.java:53",
+    "description": "Rename this constant name to match the regular expression '^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$'."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:75",
+    "description": "Define a constant instead of duplicating this literal \"Franklin\" 6 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1117",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java:89",
+    "description": "Rename \"owners\" which hides the field declared at line 76."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1117",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java:110",
+    "description": "Rename \"owners\" which hides the field declared at line 76."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java:110",
+    "description": "Define a constant instead of duplicating this literal \"Schultz\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1488",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/java/org/springframework/samples/petclinic/owner/PetController.java:69",
+    "description": "Immediately return this expression instead of assigning it to the temporary variable \"owner\"."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:88",
+    "description": "Define a constant instead of duplicating this literal \"/owners/{ownerId}/pets/new\" 6 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:90",
+    "description": "Define a constant instead of duplicating this literal \"pets/createOrUpdatePetForm\" 8 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:97",
+    "description": "Define a constant instead of duplicating this literal \"Betty\" 4 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:99",
+    "description": "Define a constant instead of duplicating this literal \"2015-02-12\" 6 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:99",
+    "description": "Define a constant instead of duplicating this literal \"birthDate\" 12 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:112",
+    "description": "Define a constant instead of duplicating this literal \"owner\" 6 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:115",
+    "description": "Define a constant instead of duplicating this literal \"required\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:164",
+    "description": "Define a constant instead of duplicating this literal \"/owners/{ownerId}/pets/{petId}/edit\" 4 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:80",
+    "description": "Define a constant instead of duplicating this literal \"error\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:108",
+    "description": "Define a constant instead of duplicating this literal \"owner\" 24 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:172",
+    "description": "Define a constant instead of duplicating this literal \"/owners/{ownerId}/edit\" 5 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:119",
+    "description": "Define a constant instead of duplicating this literal \"telephone\" 7 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1066",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/java/org/springframework/samples/petclinic/owner/Owner.java:139",
+    "description": "Merge this if statement with the enclosing one."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S112",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/PostgresIntegrationTests.java:82",
+    "description": "Replace generic exceptions with specific library exceptions or a custom exception."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/system/CrashControllerIntegrationTests.java:64",
+    "description": "Define a constant instead of duplicating this literal \"/oups\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:106",
+    "description": "Define a constant instead of duplicating this literal \"/owners/new\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:115",
+    "description": "Define a constant instead of duplicating this literal \"firstName\" 6 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:116",
+    "description": "Define a constant instead of duplicating this literal \"Bloggs\" 4 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:116",
+    "description": "Define a constant instead of duplicating this literal \"lastName\" 10 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:117",
+    "description": "Define a constant instead of duplicating this literal \"address\" 7 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:118",
+    "description": "Define a constant instead of duplicating this literal \"London\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:146",
+    "description": "Define a constant instead of duplicating this literal \"/owners?page=1\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java:71",
+    "description": "Define a constant instead of duplicating this literal \"hamster\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java:69",
+    "description": "Define a constant instead of duplicating this literal \"/owners/{ownerId}/pets/{petId}/visits/new\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S125",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:486",
+    "description": "Remove this commented out code."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:2881",
+    "description": "Unexpected duplicate selector \".dropend .dropdown-toggle::after\", first used at line 2868"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:2897",
+    "description": "Unexpected duplicate selector \".dropstart .dropdown-toggle::after\", first used at line 2891"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:2912",
+    "description": "Unexpected duplicate selector \".dropstart .dropdown-toggle::before\", first used at line 2900"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9287",
+    "description": "Unexpected duplicate selector \".btn-primary\", first used at line 2390"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9306",
+    "description": "Unexpected duplicate selector \"code\", first used at line 348"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9315",
+    "description": "Unexpected duplicate selector \"h1, .h1\", first used at line 229"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9399",
+    "description": "Unexpected duplicate selector \"hr\", first used at line 215"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9422",
+    "description": "Unexpected duplicate selector \"h1, .h1\", first used at line 229"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9427",
+    "description": "Unexpected duplicate selector \"h2, .h2\", first used at line 234"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9434",
+    "description": "Unexpected duplicate selector \"h3, .h3\", first used at line 239"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S4666",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9444",
+    "description": "Unexpected duplicate selector \".navbar\", first used at line 3171"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S125",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9478",
+    "description": "Remove this commented out code."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S7924",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/static/resources/css/petclinic.css:9495",
+    "description": "Text does not meet the minimal contrast requirement with its background."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S112",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/java/org/springframework/samples/petclinic/system/CrashController.java:33",
+    "description": "Replace generic exceptions with specific library exceptions or a custom exception."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1602",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetTypeFormatterTests.java:73",
+    "description": "Remove useless curly braces around statement (sonar.java.source not set. Assuming 8 or greater.)"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/error.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/error.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownersList.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownersList.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:PageWithoutTitleCheck",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/welcome.html:3",
+    "description": "Add a <title> tag to this page."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5254",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/welcome.html:3",
+    "description": "Add \"lang\" and/or \"xml:lang\" attributes to this \"<html>\" element"
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1117",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java:206",
+    "description": "Rename \"vets\" which hides the field declared at line 82."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:ImgWithoutAltCheck",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/error.html:6",
+    "description": "Add an \"alt\" attribute to this image."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S5256",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownerDetails.html:46",
+    "description": "Add \"<th>\" headers to this \"<table>\"."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S1827",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownerDetails.html:49",
+    "description": "Remove this deprecated \"valign\" attribute."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:S1827",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/resources/templates/owners/ownerDetails.html:59",
+    "description": "Remove this deprecated \"valign\" attribute."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "Web:ImgWithoutAltCheck",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/main/resources/templates/welcome.html:10",
+    "description": "Add an \"alt\" attribute to this image."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:74",
+    "description": "Define a constant instead of duplicating this literal \"George\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:76",
+    "description": "Define a constant instead of duplicating this literal \"110 W. Liberty St.\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:77",
+    "description": "Define a constant instead of duplicating this literal \"Madison\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:78",
+    "description": "Define a constant instead of duplicating this literal \"6085551023\" 3 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S125",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/scss/header.scss:40",
+    "description": "Remove this commented out code."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S7924",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/scss/header.scss:59",
+    "description": "Text does not meet the minimal contrast requirement with its background."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S125",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/scss/typography.scss:53",
+    "description": "Remove this commented out code."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "css:S125",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/main/scss/typography.scss:54",
+    "description": "Remove this commented out code."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1192",
+    "severity": "CRITICAL",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:109",
+    "description": "Define a constant instead of duplicating this literal \"owners/createOrUpdateOwnerForm\" 4 times."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S3599",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetTypeFormatterTests.java:84",
+    "description": "Use another way to initialize this instance."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1171",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetTypeFormatterTests.java:85",
+    "description": "Move the contents of this initializer to a standard constructor or to field initializers."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S3599",
+    "severity": "MINOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetTypeFormatterTests.java:89",
+    "description": "Use another way to initialize this instance."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1171",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/owner/PetTypeFormatterTests.java:90",
+    "description": "Move the contents of this initializer to a standard constructor or to field initializers."
+  },
+  {
+    "source": "SAST",
+    "rule_id": "java:S1118",
+    "severity": "MAJOR",
+    "location": "spring-petclinic:src/test/java/org/springframework/samples/petclinic/service/EntityUtils.java:33",
+    "description": "Add a private constructor to hide the implicit public one."
+  },
+  {
+    "source": "DAST",
+    "rule_id": "SQL Injection",
+    "severity": "HIGH",
+    "location": null,
+    "description": "<p>SQL injection may be possible.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Absence of Anti-CSRF Tokens",
+    "severity": "MEDIUM",
+    "location": null,
+    "description": "<p>No Anti-CSRF tokens were found in a HTML submission form.</p><p>A cross-site request forgery is an attack that involves forcing a victim to send an HTTP request to a target destination without their knowledge or intent in order to perform an action as the victim. The underlying cause is application functionality using predictable URL/form actions in a repeatable way. The nature of the attack is that CSRF exploits the trust that a web site has for a user. By contrast, cross-site scripting (XSS) exploits the trust that a user has for a web site. Like XSS, CSRF attacks are not necessarily cross-site, but they can be. Cross-site request forgery is also known as CSRF, XSRF, one-click attack, session riding, confused deputy, and sea surf.</p><p></p><p>CSRF attacks are effective in a number of situations, including:</p><p>    * The victim has an active session on the target site.</p><p>    * The victim is authenticated via HTTP auth on the target site.</p><p>    * The victim is on the same local network as the target site.</p><p></p><p>CSRF has primarily been used to perform an action against a target site using the victim's privileges, but recent techniques have been discovered to disclose information by gaining access to the response. The risk of information disclosure is dramatically increased when the target site is vulnerable to XSS, because XSS can be used as a platform for CSRF, allowing the attack to operate within the bounds of the same-origin policy.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Buffer Overflow",
+    "severity": "MEDIUM",
+    "location": null,
+    "description": "<p>Buffer overflow errors are characterized by the overwriting of memory spaces of the background web process, which should have never been modified intentionally or unintentionally. Overwriting values of the IP (Instruction Pointer), BP (Base Pointer) and other registers causes exceptions, segmentation faults, and other process errors to occur. Usually these errors end execution of the application in an unexpected way.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Content Security Policy (CSP) Header Not Set",
+    "severity": "MEDIUM",
+    "location": null,
+    "description": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks, including Cross Site Scripting (XSS) and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Format String Error",
+    "severity": "MEDIUM",
+    "location": null,
+    "description": "<p>A Format String error occurs when the submitted data of an input string is evaluated as a command by the application.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Missing Anti-clickjacking Header",
+    "severity": "MEDIUM",
+    "location": null,
+    "description": "<p>The response does not protect against 'ClickJacking' attacks. It should include either Content-Security-Policy with 'frame-ancestors' directive or X-Frame-Options.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Session ID in URL Rewrite",
+    "severity": "MEDIUM",
+    "location": null,
+    "description": "<p>URL rewrite is used to track user session ID. The session ID may be disclosed via cross-site referer header. In addition, the session ID might be stored in browser history or server logs.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Application Error Disclosure",
+    "severity": "LOW",
+    "location": null,
+    "description": "<p>This page contains an error/warning message that may disclose sensitive information like the location of the file that produced the unhandled exception. This information can be used to launch further attacks against the web application. The alert could be a false positive if the error message is found inside a documentation page.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Cookie without SameSite Attribute",
+    "severity": "LOW",
+    "location": null,
+    "description": "<p>A cookie has been set without the SameSite attribute, which means that the cookie can be sent as a result of a 'cross-site' request. The SameSite attribute is an effective counter measure to cross-site request forgery, cross-site script inclusion, and timing attacks.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Information Disclosure - Debug Error Messages",
+    "severity": "LOW",
+    "location": null,
+    "description": "<p>The response appeared to contain common error messages returned by platforms such as ASP.NET, and Web-servers such as IIS and Apache. You can configure the list of common debug messages.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "X-Content-Type-Options Header Missing",
+    "severity": "LOW",
+    "location": null,
+    "description": "<p>The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'. This allows older versions of Internet Explorer and Chrome to perform MIME-sniffing on the response body, potentially causing the response body to be interpreted and displayed as a content type other than the declared content type. Current (early 2014) and legacy versions of Firefox will use the declared content type (if one is set), rather than performing MIME-sniffing.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Information Disclosure - Suspicious Comments",
+    "severity": "INFORMATIONAL",
+    "location": null,
+    "description": "<p>The response appears to contain suspicious comments which may help an attacker.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "Session Management Response Identified",
+    "severity": "INFORMATIONAL",
+    "location": null,
+    "description": "<p>The given response has been identified as containing a session management token. The 'Other Info' field contains a set of header tokens that can be used in the Header Based Session Management Method. If the request is in a context which has a Session Management Method set to \"Auto-Detect\" then this rule will change the session management to use the tokens identified.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "User Agent Fuzzer",
+    "severity": "INFORMATIONAL",
+    "location": null,
+    "description": "<p>Check for differences in response based on fuzzed User Agent (eg. mobile sites, access as a Search Engine Crawler). Compares the response statuscode and the hashcode of the response body with the original response.</p>"
+  },
+  {
+    "source": "DAST",
+    "rule_id": "User Controllable HTML Element Attribute (Potential XSS)",
+    "severity": "INFORMATIONAL",
+    "location": null,
+    "description": "<p>This check looks at user-supplied input in query string parameters and POST data to identify where certain HTML attribute values might be controlled. This provides hot-spot detection for XSS (cross-site scripting) that will require further review by a security analyst to determine exploitability.</p>"
+  },
+  {
+    "source": "SCA",
+    "rule_id": "SNYK-JAVA-ORGYAML-2806360",
+    "severity": "HIGH",
+    "location": "org.springframework.samples:spring-petclinic@4.0.0-SNAPSHOT > org.yaml:snakeyaml@1.26",
+    "description": "Denial of Service (DoS)"
+  },
+  {
+    "source": "SCA",
+    "rule_id": "SNYK-JAVA-ORGYAML-3016888",
+    "severity": "LOW",
+    "location": "org.springframework.samples:spring-petclinic@4.0.0-SNAPSHOT > org.yaml:snakeyaml@1.26",
+    "description": "Stack-based Buffer Overflow"
+  },
+  {
+    "source": "SCA",
+    "rule_id": "SNYK-JAVA-ORGYAML-3016889",
+    "severity": "LOW",
+    "location": "org.springframework.samples:spring-petclinic@4.0.0-SNAPSHOT > org.yaml:snakeyaml@1.26",
+    "description": "Stack-based Buffer Overflow"
+  },
+  {
+    "source": "SCA",
+    "rule_id": "SNYK-JAVA-ORGYAML-3016891",
+    "severity": "MEDIUM",
+    "location": "org.springframework.samples:spring-petclinic@4.0.0-SNAPSHOT > org.yaml:snakeyaml@1.26",
+    "description": "Stack-based Buffer Overflow"
+  },
+  {
+    "source": "SCA",
+    "rule_id": "SNYK-JAVA-ORGYAML-3113851",
+    "severity": "LOW",
+    "location": "org.springframework.samples:spring-petclinic@4.0.0-SNAPSHOT > org.yaml:snakeyaml@1.26",
+    "description": "Stack-based Buffer Overflow"
+  },
+  {
+    "source": "SCA",
+    "rule_id": "SNYK-JAVA-ORGYAML-3152153",
+    "severity": "MEDIUM",
+    "location": "org.springframework.samples:spring-petclinic@4.0.0-SNAPSHOT > org.yaml:snakeyaml@1.26",
+    "description": "Arbitrary Code Execution"
+  },
+  {
+    "source": "SCA",
+    "rule_id": "SNYK-JAVA-ORGYAML-6056527",
+    "severity": "HIGH",
+    "location": "org.springframework.samples:spring-petclinic@4.0.0-SNAPSHOT > org.yaml:snakeyaml@1.26",
+    "description": "Denial of Service (DoS)"
+  }
+]
