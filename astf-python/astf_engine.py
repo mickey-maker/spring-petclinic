@@ -2,6 +2,7 @@ import json
 import os
 import pandas as pd
 from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill, Border, Side
 
 INPUT_FILE = "astf-python/combined_astf.json"
 RAW_DATA_DIR = "astf-python/data"
@@ -106,12 +107,10 @@ def load_raw_json(filename):
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    # ✅ SAST (Sonar)
     if "issues" in raw:
         df = pd.json_normalize(raw["issues"])
         print("[ASTF] ✅ Loaded FULL SAST issue list")
 
-    # ✅ DAST (ZAP)
     elif "site" in raw:
         alerts = []
         for site in raw.get("site", []):
@@ -119,12 +118,10 @@ def load_raw_json(filename):
         df = pd.json_normalize(alerts)
         print("[ASTF] ✅ Loaded FULL DAST alert list")
 
-    # ✅ SCA (Snyk)
     elif "vulnerabilities" in raw:
         df = pd.json_normalize(raw["vulnerabilities"])
         print("[ASTF] ✅ Loaded FULL SCA vulnerability list")
 
-    # ✅ Fallback
     else:
         df = pd.json_normalize(raw)
         print("[ASTF] ✅ Loaded RAW JSON (generic format)")
@@ -164,7 +161,6 @@ def create_summary_dashboard(df, excel_path):
     type_summary = df["type"].value_counts().reset_index()
     type_summary.columns = ["TYPE", "COUNT"]
 
-    # ✅ Create ONE combined dashboard table explicitly
     dashboard_rows = []
 
     dashboard_rows.append(["PRIORITY", "COUNT"])
@@ -180,21 +176,51 @@ def create_summary_dashboard(df, excel_path):
 
     dashboard_df = pd.DataFrame(dashboard_rows, columns=["CATEGORY", "VALUE"])
 
-    # ✅ Remove old sheet manually first (CRITICAL FIX)
     wb = load_workbook(excel_path)
     if "SUMMARY_DASHBOARD" in wb.sheetnames:
         del wb["SUMMARY_DASHBOARD"]
     wb.save(excel_path)
 
-    # ✅ Write clean dashboard
-    with pd.ExcelWriter(
-            excel_path,
-            engine="openpyxl",
-            mode="a"
-    ) as writer:
+    with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
         dashboard_df.to_excel(writer, sheet_name="SUMMARY_DASHBOARD", index=False)
 
     print("[ASTF] ✅ SUMMARY DASHBOARD CREATED (PRIORITY + TOOL + TYPE VISIBLE)")
+
+
+# ===============================
+# ✅ APPLY LIGHT GREY + BORDERS TO ALL TABLE HEADERS
+# ===============================
+def apply_global_formatting(excel_path):
+    print("[ASTF] Applying global table formatting...")
+
+    wb = load_workbook(excel_path)
+
+    grey_fill = PatternFill(start_color="EDEDED", end_color="EDEDED", fill_type="solid")
+    bold_font = Font(bold=True)
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin")
+    )
+
+    for sheet in wb.sheetnames:
+        ws = wb[sheet]
+
+        # ✅ Format FIRST ROW (header)
+        for cell in ws[1]:
+            cell.font = bold_font
+            cell.fill = grey_fill
+            cell.border = thin_border
+
+        # ✅ Apply borders to all populated cells
+        for row in ws.iter_rows(min_row=2):
+            for cell in row:
+                if cell.value is not None:
+                    cell.border = thin_border
+
+    wb.save(excel_path)
+    print("[ASTF] ✅ Global formatting applied to ALL sheets")
 
 
 # ===============================
@@ -220,6 +246,8 @@ def main():
 
     excel_path = os.path.join(OUTPUT_DIR, "astf_master_final.xlsx")
     create_summary_dashboard(df, excel_path)
+
+    apply_global_formatting(excel_path)
 
     print("\n✅ ASTF PIPELINE SUCCESSFUL")
     print("✅ Final ASTF Alerts:", len(df))
