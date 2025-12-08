@@ -2,7 +2,6 @@ import json
 import os
 import pandas as pd
 from openpyxl import load_workbook
-from openpyxl.chart import PieChart, Reference
 
 INPUT_FILE = "astf-python/combined_astf.json"
 RAW_DATA_DIR = "astf-python/data"
@@ -95,7 +94,7 @@ def generate_metrics_df(df):
 
 
 # ===============================
-# ✅ FULL RAW JSON → FULL LIST DF (FIXED)
+# ✅ FULL RAW JSON → FULL LIST DF
 # ===============================
 def load_raw_json(filename):
     path = os.path.join(RAW_DATA_DIR, filename)
@@ -151,19 +150,19 @@ def save_excel(astf_df, metrics_df, sast_df, dast_df, sca_df):
 
 
 # ===============================
-# ✅ SUMMARY DASHBOARD + PIE CHARTS (FIXED)
+# ✅ SUMMARY DASHBOARD (TABLE FORMAT ONLY)
 # ===============================
 def create_summary_dashboard(df, excel_path):
-    print("[ASTF] Creating SUMMARY DASHBOARD with pie charts...")
+    print("[ASTF] Creating SUMMARY DASHBOARD (TABLE FORMAT)...")
 
     priority_summary = df["priority"].value_counts().reset_index()
-    priority_summary.columns = ["Priority", "Count"]
+    priority_summary.columns = ["PRIORITY", "COUNT"]
 
     tool_summary = df["tool"].value_counts().reset_index()
-    tool_summary.columns = ["Tool", "Count"]
+    tool_summary.columns = ["TOOL", "COUNT"]
 
     type_summary = df["type"].value_counts().reset_index()
-    type_summary.columns = ["Type", "Count"]
+    type_summary.columns = ["TYPE", "COUNT"]
 
     with pd.ExcelWriter(
             excel_path,
@@ -186,40 +185,7 @@ def create_summary_dashboard(df, excel_path):
             index=False
         )
 
-    wb = load_workbook(excel_path)
-    ws = wb["SUMMARY_DASHBOARD"]
-
-    # === PIE 1: PRIORITY ===
-    pie1 = PieChart()
-    labels1 = Reference(ws, min_col=1, min_row=2, max_row=priority_summary.shape[0] + 1)
-    data1 = Reference(ws, min_col=2, min_row=1, max_row=priority_summary.shape[0] + 1)
-    pie1.add_data(data1, titles_from_data=True)
-    pie1.set_categories(labels1)
-    pie1.title = "Priority Distribution"
-    ws.add_chart(pie1, "E2")
-
-    # === PIE 2: TOOL ===
-    start_tool = priority_summary.shape[0] + 4
-    pie2 = PieChart()
-    labels2 = Reference(ws, min_col=1, min_row=start_tool + 1, max_row=start_tool + tool_summary.shape[0])
-    data2 = Reference(ws, min_col=2, min_row=start_tool, max_row=start_tool + tool_summary.shape[0])
-    pie2.add_data(data2, titles_from_data=True)
-    pie2.set_categories(labels2)
-    pie2.title = "Tool Distribution"
-    ws.add_chart(pie2, "E18")
-
-    # === PIE 3: TYPE ===
-    start_type = priority_summary.shape[0] + tool_summary.shape[0] + 7
-    pie3 = PieChart()
-    labels3 = Reference(ws, min_col=1, min_row=start_type + 1, max_row=start_type + type_summary.shape[0])
-    data3 = Reference(ws, min_col=2, min_row=start_type, max_row=start_type + type_summary.shape[0])
-    pie3.add_data(data3, titles_from_data=True)
-    pie3.set_categories(labels3)
-    pie3.title = "Type Distribution"
-    ws.add_chart(pie3, "E34")
-
-    wb.save(excel_path)
-    print("[ASTF] ✅ SUMMARY DASHBOARD + PIE CHARTS CREATED")
+    print("[ASTF] ✅ SUMMARY DASHBOARD CREATED (TABLE FORMAT)")
 
 
 # ===============================
