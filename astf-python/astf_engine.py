@@ -153,7 +153,7 @@ def save_excel(astf_df, metrics_df, sast_df, dast_df, sca_df):
 # ✅ SUMMARY DASHBOARD (TABLE FORMAT ONLY)
 # ===============================
 def create_summary_dashboard(df, excel_path):
-    print("[ASTF] Creating SUMMARY DASHBOARD (TABLE FORMAT)...")
+    print("[ASTF] Creating SUMMARY DASHBOARD (FINAL TABLE FORMAT)...")
 
     priority_summary = df["priority"].value_counts().reset_index()
     priority_summary.columns = ["PRIORITY", "COUNT"]
@@ -164,38 +164,37 @@ def create_summary_dashboard(df, excel_path):
     type_summary = df["type"].value_counts().reset_index()
     type_summary.columns = ["TYPE", "COUNT"]
 
+    # ✅ Create ONE combined dashboard table explicitly
+    dashboard_rows = []
+
+    dashboard_rows.append(["PRIORITY", "COUNT"])
+    dashboard_rows.extend(priority_summary.values.tolist())
+    dashboard_rows.append(["", ""])
+
+    dashboard_rows.append(["TOOL", "COUNT"])
+    dashboard_rows.extend(tool_summary.values.tolist())
+    dashboard_rows.append(["", ""])
+
+    dashboard_rows.append(["TYPE", "COUNT"])
+    dashboard_rows.extend(type_summary.values.tolist())
+
+    dashboard_df = pd.DataFrame(dashboard_rows, columns=["CATEGORY", "VALUE"])
+
+    # ✅ Remove old sheet manually first (CRITICAL FIX)
+    wb = load_workbook(excel_path)
+    if "SUMMARY_DASHBOARD" in wb.sheetnames:
+        del wb["SUMMARY_DASHBOARD"]
+    wb.save(excel_path)
+
+    # ✅ Write clean dashboard
     with pd.ExcelWriter(
             excel_path,
             engine="openpyxl",
-            mode="a",
-            if_sheet_exists="replace"
+            mode="a"
     ) as writer:
+        dashboard_df.to_excel(writer, sheet_name="SUMMARY_DASHBOARD", index=False)
 
-        # ✅ 1. PRIORITY TABLE (START AT ROW 0)
-        priority_summary.to_excel(
-            writer,
-            sheet_name="SUMMARY_DASHBOARD",
-            startrow=0,
-            index=False
-        )
-
-        # ✅ 2. TOOL TABLE (START AT ROW 8)
-        tool_summary.to_excel(
-            writer,
-            sheet_name="SUMMARY_DASHBOARD",
-            startrow=8,
-            index=False
-        )
-
-        # ✅ 3. TYPE TABLE (START AT ROW 14)
-        type_summary.to_excel(
-            writer,
-            sheet_name="SUMMARY_DASHBOARD",
-            startrow=14,
-            index=False
-        )
-
-    print("[ASTF] ✅ SUMMARY DASHBOARD CREATED (PRIORITY + TOOL + TYPE)")
+    print("[ASTF] ✅ SUMMARY DASHBOARD CREATED (PRIORITY + TOOL + TYPE VISIBLE)")
 
 
 # ===============================
