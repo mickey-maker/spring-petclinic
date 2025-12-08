@@ -11,8 +11,6 @@ OUTPUT_DIR = "astf-python/output"
 # LOAD & NORMALISE ASTF DATA
 # ===============================
 def load_combined(path):
-    print("[ASTF] Loading combined ASTF data...")
-
     if not os.path.exists(path):
         print("[ERROR] combined_astf.json not found!")
         return pd.DataFrame()
@@ -21,31 +19,40 @@ def load_combined(path):
         raw = json.load(f)
 
     if not raw:
-        print("[WARN] combined_astf.json is EMPTY!")
         return pd.DataFrame()
 
-    normalised = []
-
+    rows = []
     for item in raw:
-        tool = item.get("tool") or item.get("source") or "UNKNOWN"
-        issue_type = item.get("type") or item.get("issueType") or "VULNERABILITY"
-        severity = item.get("severity") or item.get("risk") or "INFO"
-        message = item.get("message") or item.get("title") or "No description"
-        file = item.get("file") or item.get("component") or "UNKNOWN"
-        rule = item.get("rule") or item.get("pluginid") or "UNKNOWN"
-
-        normalised.append({
-            "tool": tool.upper(),
-            "type": issue_type.upper(),
-            "severity": severity.upper(),
-            "message": message,
-            "file": file,
-            "rule": rule,
-            "data_source": "ASTF_ENGINE"
+        rows.append({
+            "tool": item.get("tool", "").upper(),
+            "type": item.get("type", "").upper(),
+            "severity": item.get("severity", "").upper(),
+            "message": item.get("message", ""),
+            "file": item.get("file", ""),
+            "rule": item.get("rule", "")
         })
 
-    df = pd.DataFrame(normalised)
-    print("[ASTF] ✅ Alerts loaded:", len(df))
+    return pd.DataFrame(rows)
+
+
+# ===============================
+# PRIORITY SCORING
+# ===============================
+def apply_priority_scoring(df):
+    SEV_WEIGHT = {"CRITICAL": 5, "HIGH": 4, "MEDIUM": 3, "LOW": 2, "INFO": 1}
+    TYPE_WEIGHT = {"VULNERABILITY": 5, "BUG": 3, "CODE_SMELL": 1}
+
+    df["sev_score"] = df["severity"].map(SEV_WEIGHT).fillna(1)
+    df["type_score"] = df["type"].map(TYPE_WEIGHT).fillna(1)
+    df["final_score"] = df["sev_score"] * df["type_score"]
+
+    def assign(score):
+        if score >= 20: return "CRITICAL"
+        if score >= 12: return "HIGH"
+        if score >= 6: return "MEDIUM"
+        return "LOW"
+
+    df["priority"] = df["final_score"].apply(assign)
     return df
 
 
@@ -53,129 +60,85 @@ def load_combined(path):
 # DEDUPLICATION
 # ===============================
 def deduplicate_alerts(df):
-    print("[ASTF] Removing duplicate alerts...")
-    before = len(df)
-    df = df.drop_duplicates(subset=["tool", "type", "rule", "file"])
-    after = len(df)
-    print(f"[ASTF] ✅ Deduplication: {before} → {after}")
-    return df
+    return df.drop_duplicates(subset=["tool", "type", "rule", "file"])
 
 
 # ===============================
-# PRIORITY SCORING
+# METRICS → DF
 # ===============================
-def apply_priority_scoring(df):
-    print("[ASTF] Applying priority scoring...")
+def generate_metrics_df(df):
+    fp = len(df[df["priority"] == "LOW"])
+    total = len(df)
 
-    SEVERITY_WEIGHT = {"CRITICAL": 5, "HIGH": 4, "MEDIUM": 3, "LOW": 2, "INFO": 1}
-    TYPE_WEIGHT = {"VULNERABILITY": 5, "BUG": 3, "CODE_SMELL": 1}
+    metrics = {
+        "total_alerts": [total],
+        "alerts_by_tool": [df["tool"].value_counts().to_dict()],
+        "alerts_by_type": [df["type"].value_counts().to_dict()],
+        "alerts_by_severity": [df["severity"].value_counts().to_dict()],
+        "alerts_by_priority": [df["priority"].value_counts().to_dict()],
+        "false_positive_estimate": [fp],
+        "false_positive_rate": [round((fp / total) * 100, 2) if total > 0 else 0]
+    }
 
-    df["sev_score"] = df["severity"].map(SEVERITY_WEIGHT).fillna(1)
-    df["type_score"] = df["type"].map(TYPE_WEIGHT).fillna(1)
-    df["final_score"] = df["sev_score"] * df["type_score"]
-
-    def assign_priority(score):
-        if score >= 20:
-            return "CRITICAL"
-        elif score >= 12:
-            return "HIGH"
-        elif score >= 6:
-            return "MEDIUM"
-        else:
-            return "LOW"
-
-    df["priority"] = df["final_score"].apply(assign_priority)
-
-    print("[ASTF] ✅ Priority scoring complete")
-    return df
+    return pd.DataFrame(metrics)
 
 
 # ===============================
-# LOAD RAW TOOL JSON → CSV ROWS
+# RAW JSON → DF
 # ===============================
-def load_raw_tool_to_df(tool_name, filename):
+def load_raw_json(filename):
     path = os.path.join(RAW_DATA_DIR, filename)
-
     if not os.path.exists(path):
-        print(f"[WARN] Missing {filename}")
-        return pd.DataFrame()
+        return pd.DataFrame([{"error": f"{filename} missing"}])
 
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    df = pd.json_normalize(raw)
-    df["tool"] = tool_name
-    df["data_source"] = "RAW_TOOL"
-
-    return df
+    return pd.json_normalize(raw)
 
 
 # ===============================
-# GENERATE METRICS → DF ROWS
+# WRITE EXCEL WITH MULTIPLE SHEETS
 # ===============================
-def generate_metrics_df(df):
-    print("[ASTF] Generating metrics rows...")
-
-    total_alerts = len(df)
-    false_positive_estimate = len(df[df["priority"] == "LOW"])
-    false_positive_rate = round((false_positive_estimate / total_alerts) * 100, 2)
-
-    metrics_rows = [
-        {"metric": "total_alerts", "value": total_alerts},
-        {"metric": "false_positive_estimate", "value": false_positive_estimate},
-        {"metric": "false_positive_rate", "value": false_positive_rate},
-    ]
-
-    return pd.DataFrame(metrics_rows)
-
-
-# ===============================
-# SAVE ONE MASTER CSV
-# ===============================
-def save_master_csv(astf_df, sast_df, dast_df, sca_df, metrics_df):
-    print("[ASTF] Creating ONE MASTER FINAL CSV...")
-
-    astf_df["section"] = "ASTF_FINAL"
-    sast_df["section"] = "SAST_RAW"
-    dast_df["section"] = "DAST_RAW"
-    sca_df["section"] = "SCA_RAW"
-    metrics_df["section"] = "TRIAGE_METRICS"
-
-    master = pd.concat(
-        [astf_df, sast_df, dast_df, sca_df, metrics_df],
-        ignore_index=True,
-        sort=False
-    )
-
+def save_excel(
+        astf_df, priority_df, tool_df, type_df,
+        metrics_df, sast_df, dast_df, sca_df
+):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    master.to_csv(os.path.join(OUTPUT_DIR, "astf_master_final.csv"), index=False)
+    output_path = os.path.join(OUTPUT_DIR, "astf_master_final.xlsx")
 
-    print("[ASTF] ✅ astf_master_final.csv created successfully")
+    with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
+        astf_df.to_excel(writer, sheet_name="ASTF_FINAL", index=False)
+        priority_df.to_excel(writer, sheet_name="PRIORITY_SUMMARY", index=False)
+        tool_df.to_excel(writer, sheet_name="TOOL_SUMMARY", index=False)
+        type_df.to_excel(writer, sheet_name="TYPE_SUMMARY", index=False)
+        metrics_df.to_excel(writer, sheet_name="TRIAGE_METRICS", index=False)
+        sast_df.to_excel(writer, sheet_name="SAST_RAW", index=False)
+        dast_df.to_excel(writer, sheet_name="DAST_RAW", index=False)
+        sca_df.to_excel(writer, sheet_name="SCA_RAW", index=False)
+
+    print("[ASTF] ✅ Excel workbook created:", output_path)
 
 
 # ===============================
-# MAIN
+# MAIN WORKFLOW
 # ===============================
 def main():
     df = load_combined(INPUT_FILE)
-
-    if df.empty:
-        print("[ASTF] ❌ No alerts detected. STOPPING.")
-        return
-
     df = deduplicate_alerts(df)
     df = apply_priority_scoring(df)
 
-    sast_df = load_raw_tool_to_df("SAST", "sast.json")
-    dast_df = load_raw_tool_to_df("DAST", "dast.json")
-    sca_df = load_raw_tool_to_df("SCA", "sca.json")
-
     metrics_df = generate_metrics_df(df)
 
-    save_master_csv(df, sast_df, dast_df, sca_df, metrics_df)
+    priority_df = df["priority"].value_counts().reset_index()
+    tool_df = df["tool"].value_counts().reset_index()
+    type_df = df["type"].value_counts().reset_index()
 
-    print("\n✅ ASTF PIPELINE SUCCESSFUL")
-    print("Final ASTF Alerts:", len(df))
+    sast_df = load_raw_json("sast.json")
+    dast_df = load_raw_json("dast.json")
+    sca_df = load_raw_json("sca.json")
+
+    save_excel(df, priority_df, tool_df, type_df, metrics_df, sast_df, dast_df, sca_df)
 
 
 if __name__ == "__main__":
