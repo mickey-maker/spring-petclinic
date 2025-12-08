@@ -171,21 +171,31 @@ def create_summary_dashboard(df, excel_path):
             if_sheet_exists="replace"
     ) as writer:
 
-        priority_summary.to_excel(writer, sheet_name="SUMMARY_DASHBOARD", startrow=0, index=False)
-        tool_summary.to_excel(
+        # ✅ 1. PRIORITY TABLE (START AT ROW 0)
+        priority_summary.to_excel(
             writer,
             sheet_name="SUMMARY_DASHBOARD",
-            startrow=priority_summary.shape[0] + 3,
-            index=False
-        )
-        type_summary.to_excel(
-            writer,
-            sheet_name="SUMMARY_DASHBOARD",
-            startrow=priority_summary.shape[0] + tool_summary.shape[0] + 6,
+            startrow=0,
             index=False
         )
 
-    print("[ASTF] ✅ SUMMARY DASHBOARD CREATED (TABLE FORMAT)")
+        # ✅ 2. TOOL TABLE (START AT ROW 8)
+        tool_summary.to_excel(
+            writer,
+            sheet_name="SUMMARY_DASHBOARD",
+            startrow=8,
+            index=False
+        )
+
+        # ✅ 3. TYPE TABLE (START AT ROW 14)
+        type_summary.to_excel(
+            writer,
+            sheet_name="SUMMARY_DASHBOARD",
+            startrow=14,
+            index=False
+        )
+
+    print("[ASTF] ✅ SUMMARY DASHBOARD CREATED (PRIORITY + TOOL + TYPE)")
 
 
 # ===============================
