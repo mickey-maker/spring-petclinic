@@ -132,7 +132,7 @@ jobs:
       # =========================
       - name: Install Python Dependencies
         run: |
-          pip install pandas
+          pip install pandas openpyxl
       
 
       # =========================
