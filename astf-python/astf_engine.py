@@ -1,6 +1,8 @@
 import json
 import os
 import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.chart import PieChart, Reference
 
 INPUT_FILE = "astf-python/combined_astf.json"
 RAW_DATA_DIR = "astf-python/data"
@@ -24,15 +26,27 @@ def load_combined(path):
     rows = []
     for item in raw:
         rows.append({
-            "tool": item.get("tool", "").upper(),
-            "type": item.get("type", "").upper(),
-            "severity": item.get("severity", "").upper(),
+            "tool": str(item.get("tool", "")).upper(),
+            "type": str(item.get("type", "")).upper(),
+            "severity": str(item.get("severity", "")).upper(),
             "message": item.get("message", ""),
             "file": item.get("file", ""),
             "rule": item.get("rule", "")
         })
 
+    print("[ASTF] ✅ ASTF alerts loaded:", len(rows))
     return pd.DataFrame(rows)
+
+
+# ===============================
+# DEDUPLICATION
+# ===============================
+def deduplicate_alerts(df):
+    before = len(df)
+    df = df.drop_duplicates(subset=["tool", "type", "rule", "file"])
+    after = len(df)
+    print(f"[ASTF] ✅ Deduplication: {before} → {after}")
+    return df
 
 
 # ===============================
@@ -53,92 +67,151 @@ def apply_priority_scoring(df):
         return "LOW"
 
     df["priority"] = df["final_score"].apply(assign)
+    print("[ASTF] ✅ Priority scoring completed")
     return df
 
 
 # ===============================
-# DEDUPLICATION
-# ===============================
-def deduplicate_alerts(df):
-    return df.drop_duplicates(subset=["tool", "type", "rule", "file"])
-
-
-# ===============================
-# METRICS → DF
+# TRIAGE METRICS → DF
 # ===============================
 def generate_metrics_df(df):
-    fp = len(df[df["priority"] == "LOW"])
     total = len(df)
+    fp = len(df[df["priority"] == "LOW"])
 
     metrics = {
-        "total_alerts": [total],
-        "alerts_by_tool": [df["tool"].value_counts().to_dict()],
-        "alerts_by_type": [df["type"].value_counts().to_dict()],
-        "alerts_by_severity": [df["severity"].value_counts().to_dict()],
-        "alerts_by_priority": [df["priority"].value_counts().to_dict()],
-        "false_positive_estimate": [fp],
-        "false_positive_rate": [round((fp / total) * 100, 2) if total > 0 else 0]
+        "Metric": [
+            "Total Alerts",
+            "False Positive Estimate",
+            "False Positive Rate (%)"
+        ],
+        "Value": [
+            total,
+            fp,
+            round((fp / total) * 100, 2) if total > 0 else 0
+        ]
     }
 
     return pd.DataFrame(metrics)
 
 
 # ===============================
-# RAW JSON → DF
+# RAW JSON → FULL LIST DF
 # ===============================
 def load_raw_json(filename):
     path = os.path.join(RAW_DATA_DIR, filename)
     if not os.path.exists(path):
+        print(f"[WARN] {filename} not found")
         return pd.DataFrame([{"error": f"{filename} missing"}])
 
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    return pd.json_normalize(raw)
+    df = pd.json_normalize(raw)
+    print(f"[ASTF] ✅ Loaded RAW list: {filename}")
+    return df
 
 
 # ===============================
-# WRITE EXCEL WITH MULTIPLE SHEETS
+# SAVE MAIN EXCEL FILE
 # ===============================
-def save_excel(
-        astf_df, priority_df, tool_df, type_df,
-        metrics_df, sast_df, dast_df, sca_df
-):
+def save_excel(astf_df, metrics_df, sast_df, dast_df, sca_df):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_path = os.path.join(OUTPUT_DIR, "astf_master_final.xlsx")
 
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
         astf_df.to_excel(writer, sheet_name="ASTF_FINAL", index=False)
-        priority_df.to_excel(writer, sheet_name="PRIORITY_SUMMARY", index=False)
-        tool_df.to_excel(writer, sheet_name="TOOL_SUMMARY", index=False)
-        type_df.to_excel(writer, sheet_name="TYPE_SUMMARY", index=False)
         metrics_df.to_excel(writer, sheet_name="TRIAGE_METRICS", index=False)
-        sast_df.to_excel(writer, sheet_name="SAST_RAW", index=False)
-        dast_df.to_excel(writer, sheet_name="DAST_RAW", index=False)
-        sca_df.to_excel(writer, sheet_name="SCA_RAW", index=False)
+        sast_df.to_excel(writer, sheet_name="SAST_RAW_LIST", index=False)
+        dast_df.to_excel(writer, sheet_name="DAST_RAW_LIST", index=False)
+        sca_df.to_excel(writer, sheet_name="SCA_RAW_LIST", index=False)
 
-    print("[ASTF] ✅ Excel workbook created:", output_path)
+    print("[ASTF] ✅ Base Excel file created:", output_path)
 
 
 # ===============================
-# MAIN WORKFLOW
+# SUMMARY DASHBOARD + PIE CHARTS
+# ===============================
+def create_summary_dashboard(df, excel_path):
+    print("[ASTF] Creating SUMMARY DASHBOARD with pie charts...")
+
+    priority_summary = df["priority"].value_counts().reset_index()
+    priority_summary.columns = ["Priority", "Count"]
+
+    tool_summary = df["tool"].value_counts().reset_index()
+    tool_summary.columns = ["Tool", "Count"]
+
+    type_summary = df["type"].value_counts().reset_index()
+    type_summary.columns = ["Type", "Count"]
+
+    with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
+        priority_summary.to_excel(writer, sheet_name="SUMMARY_DASHBOARD", startrow=0, index=False)
+        tool_summary.to_excel(writer, sheet_name="SUMMARY_DASHBOARD",
+                              startrow=priority_summary.shape[0] + 3, index=False)
+        type_summary.to_excel(writer, sheet_name="SUMMARY_DASHBOARD",
+                              startrow=priority_summary.shape[0] + tool_summary.shape[0] + 6, index=False)
+
+    wb = load_workbook(excel_path)
+    ws = wb["SUMMARY_DASHBOARD"]
+
+    # === PIE 1: PRIORITY ===
+    pie1 = PieChart()
+    labels1 = Reference(ws, min_col=1, min_row=2, max_row=priority_summary.shape[0] + 1)
+    data1 = Reference(ws, min_col=2, min_row=1, max_row=priority_summary.shape[0] + 1)
+    pie1.add_data(data1, titles_from_data=True)
+    pie1.set_categories(labels1)
+    pie1.title = "Priority Distribution"
+    ws.add_chart(pie1, "E2")
+
+    # === PIE 2: TOOL ===
+    start_tool = priority_summary.shape[0] + 4
+    pie2 = PieChart()
+    labels2 = Reference(ws, min_col=1, min_row=start_tool + 1, max_row=start_tool + tool_summary.shape[0])
+    data2 = Reference(ws, min_col=2, min_row=start_tool, max_row=start_tool + tool_summary.shape[0])
+    pie2.add_data(data2, titles_from_data=True)
+    pie2.set_categories(labels2)
+    pie2.title = "Tool Distribution"
+    ws.add_chart(pie2, "E18")
+
+    # === PIE 3: TYPE ===
+    start_type = priority_summary.shape[0] + tool_summary.shape[0] + 7
+    pie3 = PieChart()
+    labels3 = Reference(ws, min_col=1, min_row=start_type + 1, max_row=start_type + type_summary.shape[0])
+    data3 = Reference(ws, min_col=2, min_row=start_type, max_row=start_type + type_summary.shape[0])
+    pie3.add_data(data3, titles_from_data=True)
+    pie3.set_categories(labels3)
+    pie3.title = "Type Distribution"
+    ws.add_chart(pie3, "E34")
+
+    wb.save(excel_path)
+    print("[ASTF] ✅ SUMMARY DASHBOARD + PIE CHARTS CREATED")
+
+
+# ===============================
+# MAIN
 # ===============================
 def main():
     df = load_combined(INPUT_FILE)
+
+    if df.empty:
+        print("[ASTF] ❌ No alerts detected. STOPPING.")
+        return
+
     df = deduplicate_alerts(df)
     df = apply_priority_scoring(df)
 
     metrics_df = generate_metrics_df(df)
 
-    priority_df = df["priority"].value_counts().reset_index()
-    tool_df = df["tool"].value_counts().reset_index()
-    type_df = df["type"].value_counts().reset_index()
-
     sast_df = load_raw_json("sast.json")
     dast_df = load_raw_json("dast.json")
     sca_df = load_raw_json("sca.json")
 
-    save_excel(df, priority_df, tool_df, type_df, metrics_df, sast_df, dast_df, sca_df)
+    save_excel(df, metrics_df, sast_df, dast_df, sca_df)
+
+    excel_path = os.path.join(OUTPUT_DIR, "astf_master_final.xlsx")
+    create_summary_dashboard(df, excel_path)
+
+    print("\n✅ ASTF PIPELINE SUCCESSFUL")
+    print("✅ Final ASTF Alerts:", len(df))
 
 
 if __name__ == "__main__":
