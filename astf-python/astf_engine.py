@@ -143,12 +143,27 @@ def create_summary_dashboard(df, excel_path):
     type_summary = df["type"].value_counts().reset_index()
     type_summary.columns = ["Type", "Count"]
 
-    with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
+    # ✅ REPLACE dashboard safely if it already exists
+    with pd.ExcelWriter(
+            excel_path,
+            engine="openpyxl",
+            mode="a",
+            if_sheet_exists="replace"
+    ) as writer:
+
         priority_summary.to_excel(writer, sheet_name="SUMMARY_DASHBOARD", startrow=0, index=False)
-        tool_summary.to_excel(writer, sheet_name="SUMMARY_DASHBOARD",
-                              startrow=priority_summary.shape[0] + 3, index=False)
-        type_summary.to_excel(writer, sheet_name="SUMMARY_DASHBOARD",
-                              startrow=priority_summary.shape[0] + tool_summary.shape[0] + 6, index=False)
+        tool_summary.to_excel(
+            writer,
+            sheet_name="SUMMARY_DASHBOARD",
+            startrow=priority_summary.shape[0] + 3,
+            index=False
+        )
+        type_summary.to_excel(
+            writer,
+            sheet_name="SUMMARY_DASHBOARD",
+            startrow=priority_summary.shape[0] + tool_summary.shape[0] + 6,
+            index=False
+        )
 
     wb = load_workbook(excel_path)
     ws = wb["SUMMARY_DASHBOARD"]
