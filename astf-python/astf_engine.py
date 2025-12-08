@@ -95,10 +95,11 @@ def generate_metrics_df(df):
 
 
 # ===============================
-# RAW JSON → FULL LIST DF
+# ✅ FULL RAW JSON → FULL LIST DF (FIXED)
 # ===============================
 def load_raw_json(filename):
     path = os.path.join(RAW_DATA_DIR, filename)
+
     if not os.path.exists(path):
         print(f"[WARN] {filename} not found")
         return pd.DataFrame([{"error": f"{filename} missing"}])
@@ -106,8 +107,29 @@ def load_raw_json(filename):
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    df = pd.json_normalize(raw)
-    print(f"[ASTF] ✅ Loaded RAW list: {filename}")
+    # ✅ SAST (Sonar)
+    if "issues" in raw:
+        df = pd.json_normalize(raw["issues"])
+        print("[ASTF] ✅ Loaded FULL SAST issue list")
+
+    # ✅ DAST (ZAP)
+    elif "site" in raw:
+        alerts = []
+        for site in raw.get("site", []):
+            alerts.extend(site.get("alerts", []))
+        df = pd.json_normalize(alerts)
+        print("[ASTF] ✅ Loaded FULL DAST alert list")
+
+    # ✅ SCA (Snyk)
+    elif "vulnerabilities" in raw:
+        df = pd.json_normalize(raw["vulnerabilities"])
+        print("[ASTF] ✅ Loaded FULL SCA vulnerability list")
+
+    # ✅ Fallback
+    else:
+        df = pd.json_normalize(raw)
+        print("[ASTF] ✅ Loaded RAW JSON (generic format)")
+
     return df
 
 
@@ -129,7 +151,7 @@ def save_excel(astf_df, metrics_df, sast_df, dast_df, sca_df):
 
 
 # ===============================
-# SUMMARY DASHBOARD + PIE CHARTS
+# ✅ SUMMARY DASHBOARD + PIE CHARTS (FIXED)
 # ===============================
 def create_summary_dashboard(df, excel_path):
     print("[ASTF] Creating SUMMARY DASHBOARD with pie charts...")
@@ -143,7 +165,6 @@ def create_summary_dashboard(df, excel_path):
     type_summary = df["type"].value_counts().reset_index()
     type_summary.columns = ["Type", "Count"]
 
-    # ✅ REPLACE dashboard safely if it already exists
     with pd.ExcelWriter(
             excel_path,
             engine="openpyxl",
