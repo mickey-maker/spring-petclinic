@@ -8,10 +8,9 @@ INPUT_FILE = "astf-python/combined_astf.json"
 RAW_DATA_DIR = "astf-python/data"
 OUTPUT_DIR = "astf-python/output"
 
+SUPPRESS_LIST = "astf-python/suppress_list.csv"
 
-# ===============================
-# LOAD & NORMALISE ASTF DATA
-# ===============================
+
 def load_combined(path):
     if not os.path.exists(path):
         print("[ERROR] combined_astf.json not found!")
@@ -26,21 +25,18 @@ def load_combined(path):
     rows = []
     for item in raw:
         rows.append({
-            "tool": str(item.get("tool", "")).upper(),
-            "type": str(item.get("type", "")).upper(),
-            "severity": str(item.get("severity", "")).upper(),
+            "tool": str(item.get("tool", "")).upper().strip(),
+            "type": str(item.get("type", "")).upper().strip(),
+            "severity": str(item.get("severity", "")).upper().strip(),
             "message": item.get("message", ""),
-            "file": item.get("file", ""),
-            "rule": item.get("rule", "")
+            "file": str(item.get("file", "")).strip(),
+            "rule": str(item.get("rule", "")).strip()
         })
 
     print("[ASTF] ✅ ASTF alerts loaded:", len(rows))
     return pd.DataFrame(rows)
 
 
-# ===============================
-# DEDUPLICATION
-# ===============================
 def deduplicate_alerts(df):
     before = len(df)
     df = df.drop_duplicates(subset=["tool", "type", "rule", "file"])
@@ -49,9 +45,6 @@ def deduplicate_alerts(df):
     return df
 
 
-# ===============================
-# PRIORITY SCORING
-# ===============================
 def apply_priority_scoring(df):
     SEV_WEIGHT = {"CRITICAL": 5, "HIGH": 4, "MEDIUM": 3, "LOW": 2, "INFO": 1}
     TYPE_WEIGHT = {"VULNERABILITY": 5, "BUG": 3, "CODE_SMELL": 1}
@@ -71,32 +64,125 @@ def apply_priority_scoring(df):
     return df
 
 
-# ===============================
-# TRIAGE METRICS → DF
-# ===============================
+# ✅ Auto-generate suppression list (safe with localhost DAST)
+def auto_generate_suppress_list(df, output_path=SUPPRESS_LIST):
+    """
+    Conservative suppression rules to estimate false positives / accepted risks.
+
+    - SAST: suppress CODE_SMELL (quality issue) and INFO severity
+    - SCA: suppress INFO severity
+    - DAST: suppress only INFO severity (DO NOT suppress localhost just because it's localhost,
+            since your DAST runs on 127.0.0.1 inside GitHub Actions) :contentReference[oaicite:4]{index=4}
+    - Any tool: suppress if priority == LOW (optional noise reduction proxy)
+    """
+    suppressed_rows = []
+
+    for _, row in df.iterrows():
+        tool = row["tool"]
+        sev = row["severity"]
+        typ = row["type"]
+        pri = row["priority"]
+
+        reason = None
+
+        # 1) Informational severity (safe)
+        if sev == "INFO":
+            reason = "Informational severity (non-actionable)"
+
+        # 2) SAST Code Smell (safe)
+        elif tool == "SAST" and typ == "CODE_SMELL":
+            reason = "Code smell (quality issue)"
+
+        # 3) LOW priority (noise proxy) - keep it if you want stronger reduction
+        elif pri == "LOW":
+            reason = "Low priority noise"
+
+        # NOTE: We intentionally DO NOT suppress DAST localhost endpoints, because
+        # your YAML scans 127.0.0.1:8080 in runner :contentReference[oaicite:5]{index=5}.
+
+        if reason:
+            suppressed_rows.append({
+                "tool": row["tool"],
+                "rule": row["rule"],
+                "file": row["file"],
+                "reason": reason
+            })
+
+    sup_df = pd.DataFrame(suppressed_rows)
+    if sup_df.empty:
+        sup_df = pd.DataFrame(columns=["tool", "rule", "file", "reason"])
+
+    sup_df.drop_duplicates(subset=["tool", "rule", "file"], inplace=True)
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    sup_df.to_csv(output_path, index=False)
+
+    print(f"[ASTF] ✅ Auto-generated suppress_list.csv: {output_path}")
+    print(f"[ASTF] ✅ Suppress rules matched: {len(sup_df)} alerts")
+
+
+def apply_suppression(df):
+    df["suppressed"] = False
+    df["suppress_reason"] = ""
+
+    if not os.path.exists(SUPPRESS_LIST):
+        print("[ASTF] ⚠️ suppress_list.csv not found → Estimated FPR will be N/A.")
+        return df
+
+    sup = pd.read_csv(SUPPRESS_LIST)
+
+    required = ["tool", "rule", "file"]
+    for col in required:
+        if col not in sup.columns:
+            raise ValueError(f"[ERROR] suppress_list.csv missing required column: {col}")
+
+    if "reason" not in sup.columns:
+        sup["reason"] = ""
+
+    sup["tool"] = sup["tool"].astype(str).str.upper().str.strip()
+    sup["rule"] = sup["rule"].astype(str).str.strip()
+    sup["file"] = sup["file"].astype(str).str.strip()
+    sup["reason"] = sup["reason"].astype(str).str.strip()
+
+    df["tool"] = df["tool"].astype(str).str.upper().str.strip()
+    df["rule"] = df["rule"].astype(str).str.strip()
+    df["file"] = df["file"].astype(str).str.strip()
+
+    df["__key"] = df["tool"] + "|" + df["rule"] + "|" + df["file"]
+    sup["__key"] = sup["tool"] + "|" + sup["rule"] + "|" + sup["file"]
+
+    reason_map = dict(zip(sup["__key"], sup["reason"]))
+    suppress_keys = set(sup["__key"].tolist())
+
+    df["suppressed"] = df["__key"].isin(suppress_keys)
+    df["suppress_reason"] = df["__key"].map(reason_map).fillna("")
+
+    df.drop(columns=["__key"], inplace=True, errors="ignore")
+
+    print(f"[ASTF] ✅ Suppression applied: {int(df['suppressed'].sum())} alerts suppressed")
+    return df
+
+
 def generate_metrics_df(df):
     total = len(df)
-    fp = len(df[df["priority"] == "LOW"])
+    suppressed = int(df["suppressed"].sum()) if "suppressed" in df.columns else 0
+    estimated_fpr = round((suppressed / total) * 100, 2) if total > 0 else 0
 
     metrics = {
         "Metric": [
             "Total Alerts",
-            "False Positive Estimate",
-            "False Positive Rate (%)"
+            "Suppressed Alerts (Rule-Based)",
+            "Estimated False Positive Rate (%)"
         ],
         "Value": [
             total,
-            fp,
-            round((fp / total) * 100, 2) if total > 0 else 0
+            suppressed,
+            estimated_fpr
         ]
     }
-
     return pd.DataFrame(metrics)
 
 
-# ===============================
-# ✅ FULL RAW JSON → FULL LIST DF
-# ===============================
 def load_raw_json(filename):
     path = os.path.join(RAW_DATA_DIR, filename)
 
@@ -107,21 +193,18 @@ def load_raw_json(filename):
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    if "issues" in raw:
+    if isinstance(raw, dict) and "issues" in raw:
         df = pd.json_normalize(raw["issues"])
         print("[ASTF] ✅ Loaded FULL SAST issue list")
-
-    elif "site" in raw:
+    elif isinstance(raw, dict) and "site" in raw:
         alerts = []
         for site in raw.get("site", []):
             alerts.extend(site.get("alerts", []))
         df = pd.json_normalize(alerts)
         print("[ASTF] ✅ Loaded FULL DAST alert list")
-
-    elif "vulnerabilities" in raw:
+    elif isinstance(raw, dict) and "vulnerabilities" in raw:
         df = pd.json_normalize(raw["vulnerabilities"])
         print("[ASTF] ✅ Loaded FULL SCA vulnerability list")
-
     else:
         df = pd.json_normalize(raw)
         print("[ASTF] ✅ Loaded RAW JSON (generic format)")
@@ -129,9 +212,6 @@ def load_raw_json(filename):
     return df
 
 
-# ===============================
-# SAVE MAIN EXCEL FILE
-# ===============================
 def save_excel(astf_df, metrics_df, sast_df, dast_df, sca_df):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_path = os.path.join(OUTPUT_DIR, "astf_master_final.xlsx")
@@ -146,9 +226,6 @@ def save_excel(astf_df, metrics_df, sast_df, dast_df, sca_df):
     print("[ASTF] ✅ Base Excel file created:", output_path)
 
 
-# ===============================
-# ✅ SUMMARY DASHBOARD (TABLE FORMAT ONLY)
-# ===============================
 def create_summary_dashboard(df, excel_path):
     print("[ASTF] Creating SUMMARY DASHBOARD (FINAL TABLE FORMAT)...")
 
@@ -162,7 +239,6 @@ def create_summary_dashboard(df, excel_path):
     type_summary.columns = ["TYPE", "COUNT"]
 
     dashboard_rows = []
-
     dashboard_rows.append(["PRIORITY", "COUNT"])
     dashboard_rows.extend(priority_summary.values.tolist())
     dashboard_rows.append(["", ""])
@@ -187,9 +263,6 @@ def create_summary_dashboard(df, excel_path):
     print("[ASTF] ✅ SUMMARY DASHBOARD CREATED (PRIORITY + TOOL + TYPE VISIBLE)")
 
 
-# ===============================
-# ✅ APPLY LIGHT GREY + BORDERS TO ALL TABLE HEADERS
-# ===============================
 def apply_global_formatting(excel_path):
     print("[ASTF] Applying global table formatting...")
 
@@ -207,13 +280,11 @@ def apply_global_formatting(excel_path):
     for sheet in wb.sheetnames:
         ws = wb[sheet]
 
-        # ✅ Format FIRST ROW (header)
         for cell in ws[1]:
             cell.font = bold_font
             cell.fill = grey_fill
             cell.border = thin_border
 
-        # ✅ Apply borders to all populated cells
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 if cell.value is not None:
@@ -223,9 +294,6 @@ def apply_global_formatting(excel_path):
     print("[ASTF] ✅ Global formatting applied to ALL sheets")
 
 
-# ===============================
-# MAIN
-# ===============================
 def main():
     df = load_combined(INPUT_FILE)
 
@@ -235,6 +303,12 @@ def main():
 
     df = deduplicate_alerts(df)
     df = apply_priority_scoring(df)
+
+    # ✅ suppress_list.csv is generated here (automatic)
+    auto_generate_suppress_list(df)
+
+    # ✅ then applied to compute Estimated FPR
+    df = apply_suppression(df)
 
     metrics_df = generate_metrics_df(df)
 
@@ -246,7 +320,6 @@ def main():
 
     excel_path = os.path.join(OUTPUT_DIR, "astf_master_final.xlsx")
     create_summary_dashboard(df, excel_path)
-
     apply_global_formatting(excel_path)
 
     print("\n✅ ASTF PIPELINE SUCCESSFUL")
