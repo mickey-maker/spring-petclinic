@@ -43,8 +43,7 @@ def load_combined(path: str) -> pd.DataFrame:
             "message": item.get("message", ""),
             "file": file_val,
             "rule": str(item.get("rule", "")).strip(),
-            "line": line_val,
-            "location": location
+            "line": str(item.get("line", "")).strip()
         })
 
     print("[ASTF] ✅ ASTF alerts loaded:", len(rows))

@@ -57,15 +57,6 @@ def load_json_safe(path: str):
         return {}
 
 
-def _safe_int(value, default=None):
-    try:
-        if value is None or value == "":
-            return default
-        return int(value)
-    except Exception:
-        return default
-
-
 def main():
     combined = []
     print("[ASTF] Loading SAST, DAST & SCA JSON files...")
@@ -76,17 +67,19 @@ def main():
     sast_data = load_json_safe(os.path.join(DATA_DIR, FILES["sast"]))
     if isinstance(sast_data, dict) and "issues" in sast_data:
         for issue in sast_data.get("issues", []):
-            # Sonar issues often include "line"
-            line = _safe_int(issue.get("line", None), default=None)
+            file_path = issue.get("component", "")
+            line_no = issue.get("line", "")
+
+            line_value = f"{file_path}:{line_no}" if line_no else file_path
 
             combined.append({
                 "tool": "SAST",
                 "type": issue.get("type", "UNKNOWN"),
                 "severity": normalize_sonar_severity(issue.get("severity", "INFO")),
                 "message": issue.get("message", ""),
-                "file": issue.get("component", ""),
+                "file": file_path,
                 "rule": issue.get("rule", ""),
-                "line": line
+                "line": line_value
             })
 
     # =========================
@@ -96,15 +89,16 @@ def main():
     if isinstance(dast_data, dict) and "site" in dast_data:
         for site in dast_data.get("site", []):
             for alert in site.get("alerts", []):
-                # ZAP is endpoint-based; no code line. Keep None.
+                uri = alert.get("uri", "")
+
                 combined.append({
                     "tool": "DAST",
                     "type": "VULNERABILITY",
                     "severity": normalize_zap_riskdesc(alert.get("riskdesc", "")),
                     "message": alert.get("alert", ""),
-                    "file": alert.get("uri", ""),
+                    "file": uri,
                     "rule": str(alert.get("pluginid", "")),
-                    "line": None
+                    "line": uri   # endpoint acts as location
                 })
 
     # =========================
@@ -113,15 +107,16 @@ def main():
     sca_data = load_json_safe(os.path.join(DATA_DIR, FILES["sca"]))
     if isinstance(sca_data, dict) and "vulnerabilities" in sca_data:
         for vuln in sca_data.get("vulnerabilities", []):
-            # Snyk is dependency-based; no code line. Keep None.
+            pkg = vuln.get("packageName", "")
+
             combined.append({
                 "tool": "SCA",
                 "type": "VULNERABILITY",
                 "severity": normalize_snyk_severity(vuln.get("severity", "")),
                 "message": vuln.get("title", ""),
-                "file": vuln.get("packageName", ""),
+                "file": pkg,
                 "rule": vuln.get("id", ""),
-                "line": None
+                "line": pkg   # dependency location
             })
 
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
