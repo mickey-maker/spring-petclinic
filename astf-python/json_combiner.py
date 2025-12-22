@@ -66,7 +66,8 @@ def main():
                 "severity": normalize_sonar_severity(issue.get("severity", "INFO")),
                 "message": issue.get("message", ""),
                 "file": issue.get("component", ""),
-                "rule": issue.get("rule", "")
+                "rule": issue.get("rule", ""),
+                "line": issue.get("line", "")
             })
 
     # DAST — ZAP

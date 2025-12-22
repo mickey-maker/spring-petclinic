@@ -33,7 +33,8 @@ def load_combined(path: str) -> pd.DataFrame:
             "severity": str(item.get("severity", "")).upper().strip(),
             "message": item.get("message", ""),
             "file": str(item.get("file", "")).strip(),
-            "rule": str(item.get("rule", "")).strip()
+            "rule": str(item.get("rule", "")).strip(),
+            "line": str(item.get("line", "")).strip()
         })
 
     print("[ASTF] ✅ ASTF alerts loaded:", len(rows))
@@ -111,6 +112,7 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
                 "tool": tool,
                 "rule": row.get("rule", ""),
                 "file": row.get("file", ""),
+                "line": row.get("line", ""),
                 "reason": reason
             })
 
@@ -118,7 +120,7 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
     if sup_df.empty:
         sup_df = pd.DataFrame(columns=["tool", "rule", "file", "reason"])
 
-    sup_df.drop_duplicates(subset=["tool", "rule", "file"], inplace=True)
+    sup_df.drop_duplicates(subset=["tool", "rule", "file", "line"], inplace=True)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     sup_df.to_csv(output_path, index=False)
@@ -143,7 +145,7 @@ def apply_suppression(df: pd.DataFrame, suppress_csv: str = SUPPRESS_LIST_CSV) -
 
     sup = pd.read_csv(suppress_csv)
 
-    required = ["tool", "rule", "file"]
+    required = ["tool", "rule", "file", "line"]
     for col in required:
         if col not in sup.columns:
             raise ValueError(f"[ERROR] suppress_list.csv missing required column: {col}")
@@ -155,14 +157,16 @@ def apply_suppression(df: pd.DataFrame, suppress_csv: str = SUPPRESS_LIST_CSV) -
     sup["tool"] = sup["tool"].astype(str).str.upper().str.strip()
     sup["rule"] = sup["rule"].astype(str).str.strip()
     sup["file"] = sup["file"].astype(str).str.strip()
+    sup["line"] = sup["line"].astype(str).str.strip()
     sup["reason"] = sup["reason"].astype(str).str.strip()
 
     df["tool"] = df["tool"].astype(str).str.upper().str.strip()
     df["rule"] = df["rule"].astype(str).str.strip()
     df["file"] = df["file"].astype(str).str.strip()
+    df["line"] = df["line"].astype(str).str.strip()
 
-    df["__key"] = df["tool"] + "|" + df["rule"] + "|" + df["file"]
-    sup["__key"] = sup["tool"] + "|" + sup["rule"] + "|" + sup["file"]
+    df["__key"] = df["tool"] + "|" + df["rule"] + "|" + df["file"] + "|" + df["line"]
+    sup["__key"] = sup["tool"] + "|" + sup["rule"] + "|" + sup["file"] + "|" + sup["line"]
 
     suppress_keys = set(sup["__key"].tolist())
     reason_map = dict(zip(sup["__key"], sup["reason"]))
