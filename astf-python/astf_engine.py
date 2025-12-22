@@ -27,13 +27,24 @@ def load_combined(path: str) -> pd.DataFrame:
 
     rows = []
     for item in raw:
+        line_val = item.get("line", None)
+        try:
+            line_val = int(line_val) if line_val not in (None, "", "None") else None
+        except Exception:
+            line_val = None
+
+        file_val = str(item.get("file", "")).strip()
+        location = f"{file_val}:{line_val}" if (file_val and line_val is not None) else file_val
+
         rows.append({
             "tool": str(item.get("tool", "")).upper().strip(),
             "type": str(item.get("type", "")).upper().strip(),
             "severity": str(item.get("severity", "")).upper().strip(),
             "message": item.get("message", ""),
-            "file": str(item.get("file", "")).strip(),
-            "rule": str(item.get("rule", "")).strip()
+            "file": file_val,
+            "rule": str(item.get("rule", "")).strip(),
+            "line": line_val,
+            "location": location
         })
 
     print("[ASTF] ✅ ASTF alerts loaded:", len(rows))
@@ -45,7 +56,9 @@ def load_combined(path: str) -> pd.DataFrame:
 # ===============================
 def deduplicate_alerts(df: pd.DataFrame) -> pd.DataFrame:
     before = len(df)
-    df = df.drop_duplicates(subset=["tool", "type", "rule", "file"])
+    # include line in dedupe to avoid merging same rule/file but different lines
+    subset_cols = ["tool", "type", "rule", "file", "line"] if "line" in df.columns else ["tool", "type", "rule", "file"]
+    df = df.drop_duplicates(subset=subset_cols)
     after = len(df)
     print(f"[ASTF] ✅ Deduplication: {before} → {after}")
     return df
@@ -88,7 +101,7 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
     - SAST CODE_SMELL => suppress (quality issue)
     - LOW priority => suppress (noise proxy)
 
-    This is an "estimated FPR", not absolute truth.
+    Adds 'line' + 'location' so you can see WHERE the suppressed alert occurs.
     """
     suppressed_rows = []
 
@@ -97,6 +110,10 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
         sev = row.get("severity", "")
         typ = row.get("type", "")
         pri = row.get("priority", "")
+        rule = row.get("rule", "")
+        file_ = row.get("file", "")
+        line_ = row.get("line", None)
+        location = row.get("location", file_)
 
         reason = None
         if sev == "INFO":
@@ -109,15 +126,18 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
         if reason:
             suppressed_rows.append({
                 "tool": tool,
-                "rule": row.get("rule", ""),
-                "file": row.get("file", ""),
+                "rule": rule,
+                "file": file_,
+                "line": line_,
+                "location": location,
                 "reason": reason
             })
 
     sup_df = pd.DataFrame(suppressed_rows)
     if sup_df.empty:
-        sup_df = pd.DataFrame(columns=["tool", "rule", "file", "reason"])
+        sup_df = pd.DataFrame(columns=["tool", "rule", "file", "line", "location", "reason"])
 
+    # Keep suppression matching stable by tool/rule/file (line is for reporting)
     sup_df.drop_duplicates(subset=["tool", "rule", "file"], inplace=True)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -365,7 +385,6 @@ def save_excel(astf_df: pd.DataFrame,
         metrics_df.to_excel(writer, sheet_name="TRIAGE_METRICS", index=False)
         suppress_df.to_excel(writer, sheet_name="SUPPRESS_LIST", index=False)
 
-        # Keep same sheet names as you already have
         sast_df.to_excel(writer, sheet_name="SAST_RAW_LIST", index=False)
         dast_df.to_excel(writer, sheet_name="DAST_RAW_LIST", index=False)
         sca_df.to_excel(writer, sheet_name="SCA_RAW_LIST", index=False)
