@@ -14,24 +14,29 @@ SUPPRESS_LIST_CSV = "astf-python/suppress_list.csv"
 # ===============================
 # HELPERS
 # ===============================
-def _to_int_or_none(val):
+def _safe_upper(x) -> str:
+    return str(x or "").upper().strip()
+
+
+def _safe_strip(x) -> str:
+    return str(x or "").strip()
+
+
+def _line_to_int_or_none(x):
+    if x in (None, "", "None"):
+        return None
     try:
-        if val is None:
-            return None
-        s = str(val).strip()
-        if s == "" or s.lower() == "none":
-            return None
-        return int(float(s))
+        return int(str(x).strip())
     except Exception:
         return None
 
 
-def _safe_upper(x):
-    return str(x or "").strip().upper()
-
-
-def _safe_str(x):
-    return str(x or "").strip()
+def build_location(file_val: str, line_val) -> str:
+    f = _safe_strip(file_val)
+    ln = _line_to_int_or_none(line_val)
+    if f and ln is not None:
+        return f"{f}:{ln}"
+    return f
 
 
 # ===============================
@@ -52,47 +57,24 @@ def load_combined(path: str) -> pd.DataFrame:
     for item in raw:
         tool = _safe_upper(item.get("tool", ""))
         typ = _safe_upper(item.get("type", ""))
-        severity = _safe_upper(item.get("severity", ""))
-        message = item.get("message", "")
-        rule = _safe_str(item.get("rule", ""))
+        sev = _safe_upper(item.get("severity", ""))
+        msg = item.get("message", "")
+        file_val = _safe_strip(item.get("file", ""))
+        rule = _safe_strip(item.get("rule", ""))
+        line_val = item.get("line", None)
 
-        # file
-        file_val = _safe_str(item.get("file", ""))
-
-        # line:
-        # ✅ supports:
-        # - new format: line is int
-        # - old/broken format: line was "file:123" or "uri"
-        raw_line = item.get("line", None)
-        line_val = _to_int_or_none(raw_line)
-
-        if line_val is None and isinstance(raw_line, str) and ":" in raw_line:
-            # try parse "...:123"
-            try:
-                maybe_line = raw_line.split(":")[-1].strip()
-                parsed = _to_int_or_none(maybe_line)
-                if parsed is not None:
-                    line_val = parsed
-                    # if file missing, try recover file from prefix
-                    if not file_val:
-                        file_val = ":".join(raw_line.split(":")[:-1]).strip()
-            except Exception:
-                pass
-
-        # location (string)
-        location = _safe_str(item.get("location", ""))
-        if not location:
-            location = f"{file_val}:{line_val}" if (file_val and line_val is not None) else file_val
+        # Prefer location from combiner if present; otherwise derive it
+        loc = _safe_strip(item.get("location", "")) or build_location(file_val, line_val)
 
         rows.append({
             "tool": tool,
             "type": typ,
-            "severity": severity,
-            "message": message,
+            "severity": sev,
+            "message": msg,
             "file": file_val,
             "rule": rule,
-            "line": line_val,          # ✅ int/None
-            "location": location       # ✅ always string
+            "line": _line_to_int_or_none(line_val),
+            "location": loc
         })
 
     print("[ASTF] ✅ ASTF alerts loaded:", len(rows))
@@ -104,7 +86,7 @@ def load_combined(path: str) -> pd.DataFrame:
 # ===============================
 def deduplicate_alerts(df: pd.DataFrame) -> pd.DataFrame:
     before = len(df)
-    subset_cols = ["tool", "type", "rule", "file", "line"]
+    subset_cols = ["tool", "type", "rule", "location"]
     df = df.drop_duplicates(subset=subset_cols)
     after = len(df)
     print(f"[ASTF] ✅ Deduplication: {before} → {after}")
@@ -115,21 +97,24 @@ def deduplicate_alerts(df: pd.DataFrame) -> pd.DataFrame:
 # PRIORITY SCORING
 # ===============================
 def apply_priority_scoring(df: pd.DataFrame) -> pd.DataFrame:
+    # Severity weights
     SEV_WEIGHT = {"CRITICAL": 5, "HIGH": 4, "MEDIUM": 3, "LOW": 2, "INFO": 1}
+    # Type weights (your ASTF goal is triage accuracy; vulnerability matters most)
     TYPE_WEIGHT = {"VULNERABILITY": 5, "BUG": 3, "CODE_SMELL": 1}
 
-    df["sev_score"] = df["severity"].map(SEV_WEIGHT).fillna(1)
-    df["type_score"] = df["type"].map(TYPE_WEIGHT).fillna(1)
-    df["final_score"] = df["sev_score"] * df["type_score"]
+    df["sev_score"] = df["severity"].map(SEV_WEIGHT).fillna(1).astype(int)
+    df["type_score"] = df["type"].map(TYPE_WEIGHT).fillna(1).astype(int)
 
-    def assign(score):
+    # Final Score formula (simple, explainable in Chapter 4/5)
+    # final_score = severity_weight × type_weight
+    df["final_score"] = (df["sev_score"] * df["type_score"]).astype(int)
+
+    def assign(score: int) -> str:
         if score >= 20:
-            return "CRITICAL"
+            return "P1"   # highest
         if score >= 12:
-            return "HIGH"
-        if score >= 6:
-            return "MEDIUM"
-        return "LOW"
+            return "P2"
+        return "P3"
 
     df["priority"] = df["final_score"].apply(assign)
     print("[ASTF] ✅ Priority scoring completed")
@@ -141,13 +126,10 @@ def apply_priority_scoring(df: pd.DataFrame) -> pd.DataFrame:
 # ===============================
 def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LIST_CSV) -> pd.DataFrame:
     """
-    Generates suppress_list.csv using conservative rules (noise proxy).
-    ✅ Includes file + line + location so you can show the exact code location/endpoint.
-
-    Rule-based suppression (proxy for FPR):
-    - INFO severity => suppress (non-actionable)
-    - SAST CODE_SMELL => suppress (quality issue)
-    - LOW priority => suppress (noise proxy)
+    Conservative suppression rules (noise proxy) to estimate FPR:
+    - INFO severity => suppress
+    - SAST CODE_SMELL => suppress
+    - Priority P3 + LOW severity => suppress
     """
     suppressed_rows = []
 
@@ -159,23 +141,23 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
         rule = row.get("rule", "")
         file_ = row.get("file", "")
         line_ = row.get("line", None)
-        location = row.get("location", file_)
+        location = row.get("location", build_location(file_, line_))
 
         reason = None
         if sev == "INFO":
             reason = "Informational severity (non-actionable)"
         elif tool == "SAST" and typ == "CODE_SMELL":
-            reason = "Code smell (quality issue)"
-        elif pri == "LOW":
-            reason = "Low priority noise"
+            reason = "Code smell (quality issue / noise proxy)"
+        elif pri == "P3" and sev in {"LOW", "INFO"}:
+            reason = "Low priority noise proxy (P3 + LOW/INFO)"
 
         if reason:
             suppressed_rows.append({
                 "tool": tool,
                 "rule": rule,
                 "file": file_,
-                "line": line_,          # ✅ stored as int/None
-                "location": location,   # ✅ stored as string
+                "line": line_,
+                "location": location,   # ✅ exact location used for matching
                 "reason": reason
             })
 
@@ -183,20 +165,21 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
     if sup_df.empty:
         sup_df = pd.DataFrame(columns=["tool", "rule", "file", "line", "location", "reason"])
 
-    # ✅ suppression matching: tool/rule/file/line when line exists
-    sup_df.drop_duplicates(subset=["tool", "rule", "file", "line"], inplace=True)
+    # Stable matching keys: tool + rule + location
+    sup_df["tool"] = sup_df["tool"].astype(str).str.upper().str.strip()
+    sup_df["rule"] = sup_df["rule"].astype(str).str.strip()
+    sup_df["location"] = sup_df["location"].astype(str).str.strip()
+
+    sup_df = sup_df.drop_duplicates(subset=["tool", "rule", "location"])
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     sup_df.to_csv(output_path, index=False)
-
-    print(f"[ASTF] ✅ suppress_list.csv generated: {output_path}")
-    print(f"[ASTF] ✅ suppress_list.csv absolute path: {os.path.abspath(output_path)}")
-    print(f"[ASTF] ✅ suppressed candidates: {len(sup_df)}")
+    print("[ASTF] ✅ suppress_list.csv auto-generated:", output_path)
     return sup_df
 
 
 # ===============================
-# APPLY SUPPRESSION USING suppress_list.csv
+# APPLY SUPPRESSION
 # ===============================
 def apply_suppression(df: pd.DataFrame, suppress_csv: str = SUPPRESS_LIST_CSV) -> pd.DataFrame:
     df["suppressed"] = False
@@ -209,108 +192,92 @@ def apply_suppression(df: pd.DataFrame, suppress_csv: str = SUPPRESS_LIST_CSV) -
 
     sup = pd.read_csv(suppress_csv)
 
-    required = ["tool", "rule", "file"]
+    required = ["tool", "rule", "location", "reason"]
     for col in required:
         if col not in sup.columns:
             raise ValueError(f"[ERROR] suppress_list.csv missing required column: {col}")
 
-    if "line" not in sup.columns:
-        sup["line"] = None
-    if "reason" not in sup.columns:
-        sup["reason"] = ""
-
-    # Normalize
-    sup["tool"] = sup["tool"].astype(str).str.upper().str.strip()
-    sup["rule"] = sup["rule"].astype(str).str.strip()
-    sup["file"] = sup["file"].astype(str).str.strip()
-    sup["line"] = sup["line"].apply(_to_int_or_none)
-    sup["reason"] = sup["reason"].astype(str).str.strip()
-
+    # Normalize keys
     df["tool"] = df["tool"].astype(str).str.upper().str.strip()
     df["rule"] = df["rule"].astype(str).str.strip()
-    df["file"] = df["file"].astype(str).str.strip()
-    df["line"] = df["line"].apply(_to_int_or_none)
+    df["location"] = df["location"].astype(str).str.strip()
 
-    # ✅ key includes line when available (more accurate)
-    def make_key(tool, rule, file_, line_):
-        base = f"{tool}|{rule}|{file_}"
-        return f"{base}|{line_}" if line_ is not None else base
+    sup["tool"] = sup["tool"].astype(str).str.upper().str.strip()
+    sup["rule"] = sup["rule"].astype(str).str.strip()
+    sup["location"] = sup["location"].astype(str).str.strip()
+    sup["reason"] = sup["reason"].astype(str).str.strip()
 
-    sup["__key"] = sup.apply(lambda r: make_key(r["tool"], r["rule"], r["file"], r["line"]), axis=1)
-    df["__key"] = df.apply(lambda r: make_key(r["tool"], r["rule"], r["file"], r["line"]), axis=1)
+    df["__key"] = df["tool"] + "|" + df["rule"] + "|" + df["location"]
+    sup["__key"] = sup["tool"] + "|" + sup["rule"] + "|" + sup["location"]
 
-    suppress_keys = set(sup["__key"].tolist())
-    reason_map = dict(zip(sup["__key"], sup["reason"]))
+    sup_map = dict(zip(sup["__key"], sup["reason"]))
 
-    df["suppressed"] = df["__key"].isin(suppress_keys)
-    df["suppress_reason"] = df["__key"].map(reason_map).fillna("")
+    df["suppressed"] = df["__key"].isin(sup_map.keys())
+    df["suppress_reason"] = df["__key"].map(sup_map).fillna("")
+    df.drop(columns=["__key"], inplace=True)
 
-    df.drop(columns=["__key"], inplace=True, errors="ignore")
-
-    print(f"[ASTF] ✅ Suppression applied: {int(df['suppressed'].sum())} alerts suppressed")
+    print("[ASTF] ✅ Suppression applied:", int(df["suppressed"].sum()))
     return df
 
 
 # ===============================
-# TRIAGE METRICS (EXPANDED)
+# TRIAGE METRICS (Expanded)
 # ===============================
-def generate_metrics_df(df: pd.DataFrame, raw_total_before_dedupe: int = None) -> pd.DataFrame:
-    total = len(df)
+def generate_metrics_df(df: pd.DataFrame, raw_before_dedup: int = None) -> pd.DataFrame:
+    total_after_dedup = len(df)
     suppressed = int(df["suppressed"].sum()) if "suppressed" in df.columns else 0
-    actionable = total - suppressed
+    actionable = total_after_dedup - suppressed
 
-    suppression_rate = round((suppressed / total) * 100, 2) if total > 0 else 0
-    actionable_rate = round((actionable / total) * 100, 2) if total > 0 else 0
+    if raw_before_dedup is None:
+        raw_before_dedup = total_after_dedup
 
-    # High/Critical focus ratio
-    high_crit = int(df["priority"].isin(["HIGH", "CRITICAL"]).sum()) if "priority" in df.columns else 0
-    high_crit_rate = round((high_crit / total) * 100, 2) if total > 0 else 0
+    dedup_removed = raw_before_dedup - total_after_dedup
+    dedup_rate = (dedup_removed / raw_before_dedup * 100) if raw_before_dedup else 0.0
 
-    # Severity distribution
-    sev_counts = df["severity"].value_counts(dropna=False).to_dict() if "severity" in df.columns else {}
-    pri_counts = df["priority"].value_counts(dropna=False).to_dict() if "priority" in df.columns else {}
-    tool_counts = df["tool"].value_counts(dropna=False).to_dict() if "tool" in df.columns else {}
+    suppression_rate = (suppressed / total_after_dedup * 100) if total_after_dedup else 0.0
+    estimated_fpr = suppression_rate  # proxy definition (explain in thesis)
 
-    # Dedupe rate (if caller provides raw pre-dedupe count)
-    dedupe_rate = None
-    if raw_total_before_dedupe is not None and raw_total_before_dedupe > 0:
-        dedupe_rate = round(((raw_total_before_dedupe - total) / raw_total_before_dedupe) * 100, 2)
+    # Distributions
+    by_tool = df["tool"].value_counts().to_dict() if "tool" in df.columns else {}
+    by_sev = df["severity"].value_counts().to_dict() if "severity" in df.columns else {}
+    by_pri = df["priority"].value_counts().to_dict() if "priority" in df.columns else {}
 
-    # Estimated FPR (proxy) = suppressed rate
-    estimated_fpr = suppression_rate
+    # Score stats
+    score_mean = float(df["final_score"].mean()) if "final_score" in df.columns else 0.0
+    score_median = float(df["final_score"].median()) if "final_score" in df.columns else 0.0
+    score_max = int(df["final_score"].max()) if "final_score" in df.columns else 0
 
     rows = [
-        ("Total Alerts (Post-Dedup)", total, "Alerts after normalization + deduplication"),
-        ("Suppressed Alerts (Rule-Based)", suppressed, "Noise removed via suppress_list.csv rules"),
-        ("Actionable Alerts", actionable, "Alerts remaining for developer/security action"),
-        ("Suppression Rate (%)", suppression_rate, "Suppressed / Total * 100 (noise reduction)"),
-        ("Actionable Rate (%)", actionable_rate, "Actionable / Total * 100"),
-        ("Estimated False Positive Rate (%)", estimated_fpr, "Proxy: suppressed alerts treated as false positives"),
-        ("High+Critical Priority Alerts", high_crit, "Count of alerts prioritized HIGH or CRITICAL"),
-        ("High+Critical Ratio (%)", high_crit_rate, "High+Critical / Total * 100"),
+        ("Total Alerts (Raw, Before Dedup)", raw_before_dedup),
+        ("Alerts After Deduplication", total_after_dedup),
+        ("Deduplicated Alerts Removed", dedup_removed),
+        ("Deduplication Rate (%)", round(dedup_rate, 2)),
+        ("Suppressed Alerts", suppressed),
+        ("Actionable Alerts", actionable),
+        ("Suppression Rate (%)", round(suppression_rate, 2)),
+        ("Estimated False Positive Rate (FPR) (%)", round(estimated_fpr, 2)),
+        ("Mean Final Score", round(score_mean, 2)),
+        ("Median Final Score", round(score_median, 2)),
+        ("Max Final Score", score_max),
     ]
 
-    if dedupe_rate is not None:
-        rows.insert(0, ("Deduplication Reduction (%)", dedupe_rate, "((Raw - PostDedup)/Raw)*100"))
+    # Priority breakdown
+    for k in ["P1", "P2", "P3"]:
+        rows.append((f"Priority Count ({k})", int(by_pri.get(k, 0))))
 
-    # Add compact distributions as metric rows (good for thesis tables)
-    for k in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
-        if k in sev_counts:
-            rows.append((f"Severity Count: {k}", int(sev_counts.get(k, 0)), "Distribution (severity)"))
+    # Tool breakdown
+    for tool, cnt in by_tool.items():
+        rows.append((f"Tool Count ({tool})", int(cnt)))
 
-    for k in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
-        if k in pri_counts:
-            rows.append((f"Priority Count: {k}", int(pri_counts.get(k, 0)), "Distribution (priority)"))
+    # Severity breakdown
+    for sev, cnt in by_sev.items():
+        rows.append((f"Severity Count ({sev})", int(cnt)))
 
-    for tool, cnt in tool_counts.items():
-        rows.append((f"Tool Count: {tool}", int(cnt), "Distribution (tool source)"))
-
-    metrics_df = pd.DataFrame(rows, columns=["Metric", "Value", "Notes"])
-    return metrics_df
+    return pd.DataFrame(rows, columns=["Metric", "Value"])
 
 
 # ===============================
-# RAW JSON -> MAIN COLUMNS ONLY
+# RAW LISTS (for appendix / evidence)
 # ===============================
 def _pick_columns(df: pd.DataFrame, wanted: list) -> pd.DataFrame:
     existing = [c for c in wanted if c in df.columns]
@@ -331,11 +298,7 @@ def load_sast_raw_main() -> pd.DataFrame:
     issues = raw.get("issues", []) if isinstance(raw, dict) else raw
     df = pd.json_normalize(issues)
 
-    wanted = [
-        "key", "rule", "severity", "type", "status",
-        "component", "project", "line", "message",
-        "creationDate", "updateDate"
-    ]
+    wanted = ["key", "rule", "severity", "type", "status", "component", "project", "line", "message", "creationDate", "updateDate"]
     return _pick_columns(df, wanted)
 
 
@@ -356,12 +319,7 @@ def load_dast_raw_main() -> pd.DataFrame:
         alerts = raw
 
     df = pd.json_normalize(alerts)
-
-    wanted = [
-        "pluginid", "alertRef", "alert", "riskcode",
-        "confidence", "riskdesc", "desc", "solution",
-        "reference", "cweid", "wascid", "sourceid"
-    ]
+    wanted = ["pluginid", "alertRef", "alert", "riskcode", "confidence", "riskdesc", "desc", "solution", "reference", "cweid", "wascid", "sourceid"]
     return _pick_columns(df, wanted)
 
 
@@ -376,12 +334,7 @@ def load_sca_raw_main() -> pd.DataFrame:
 
     vulns = raw.get("vulnerabilities", []) if isinstance(raw, dict) else raw
     df = pd.json_normalize(vulns)
-
-    wanted = [
-        "id", "title", "severity", "cvssScore",
-        "packageName", "moduleName", "language",
-        "fixedIn", "patches"
-    ]
+    wanted = ["id", "title", "severity", "cvssScore", "packageName", "moduleName", "language", "fixedIn", "patches"]
     return _pick_columns(df, wanted)
 
 
@@ -441,13 +394,11 @@ def apply_global_formatting(excel_path: str):
     for sheet in wb.sheetnames:
         ws = wb[sheet]
 
-        # header
         for cell in ws[1]:
             cell.font = bold_font
             cell.fill = grey_fill
             cell.border = thin_border
 
-        # borders for populated
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 if cell.value is not None:
@@ -492,23 +443,25 @@ def main():
     print("[ASTF] combined_astf.json:", os.path.abspath(INPUT_FILE))
     print("[ASTF] suppress_list.csv:", os.path.abspath(SUPPRESS_LIST_CSV))
 
-    # Load once to capture raw count (for dedupe metric)
     df_raw = load_combined(INPUT_FILE)
     if df_raw.empty:
         print("[ASTF] ❌ No alerts detected. STOPPING.")
         return
 
-    raw_total_before_dedupe = len(df_raw)
+    raw_before_dedup = len(df_raw)
 
     df = deduplicate_alerts(df_raw)
     df = apply_priority_scoring(df)
 
+    # Generate suppress_list.csv automatically + keep a DF copy for Excel sheet
     suppress_df = auto_generate_suppress_list(df, SUPPRESS_LIST_CSV)
+
+    # Apply suppression flags + reasons
     df = apply_suppression(df, SUPPRESS_LIST_CSV)
 
-    metrics_df = generate_metrics_df(df, raw_total_before_dedupe=raw_total_before_dedupe)
+    metrics_df = generate_metrics_df(df, raw_before_dedup=raw_before_dedup)
 
-    # raw views
+    # Raw evidence sheets
     sast_df = load_sast_raw_main()
     dast_df = load_dast_raw_main()
     sca_df = load_sca_raw_main()
@@ -518,7 +471,7 @@ def main():
     apply_global_formatting(excel_path)
 
     print("\n✅ ASTF PIPELINE SUCCESSFUL")
-    print("✅ Final ASTF Alerts:", len(df))
+    print("✅ Final ASTF Alerts (after dedup + scoring + suppression):", len(df))
 
 
 if __name__ == "__main__":

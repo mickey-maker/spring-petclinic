@@ -57,98 +57,101 @@ def load_json_safe(path: str):
         return {}
 
 
-def to_int_or_none(val):
+def to_int_or_none(x):
+    if x in (None, "", "None"):
+        return None
     try:
-        if val is None:
-            return None
-        s = str(val).strip()
-        if s == "" or s.lower() == "none":
-            return None
-        return int(float(s))
+        return int(str(x).strip())
     except Exception:
         return None
 
 
 def main():
     combined = []
-    print("[ASTF] Loading SAST, DAST & SCA JSON files...")
+    print("[ASTF] Loading SAST, DAST & SCA JSON files.")
 
     # =========================
-    # SAST — SonarCloud
+    # SAST — SonarCloud issues API export
     # =========================
     sast_data = load_json_safe(os.path.join(DATA_DIR, FILES["sast"]))
     if isinstance(sast_data, dict) and "issues" in sast_data:
         for issue in sast_data.get("issues", []):
-            component = str(issue.get("component", "")).strip()
-            # Sonar often stores "projectKey:path/to/file"
-            # Keep as-is, or optionally split after ":" if you want only file path.
-            file_path = component
-
+            file_path = str(issue.get("component", "")).strip()
             line_no = to_int_or_none(issue.get("line", None))
+
             location = f"{file_path}:{line_no}" if (file_path and line_no is not None) else file_path
 
             combined.append({
                 "tool": "SAST",
-                "type": issue.get("type", "UNKNOWN"),
+                "type": str(issue.get("type", "UNKNOWN")).upper().strip(),
                 "severity": normalize_sonar_severity(issue.get("severity", "INFO")),
                 "message": issue.get("message", ""),
                 "file": file_path,
-                "rule": issue.get("rule", ""),
-                "line": line_no,         # ✅ int or None
-                "location": location     # ✅ always string
+                "rule": str(issue.get("rule", "")).strip(),
+                "line": line_no,            # ✅ numeric line (or None)
+                "location": location        # ✅ file:line
             })
 
     # =========================
-    # DAST — ZAP
+    # DAST — OWASP ZAP JSON report
     # =========================
     dast_data = load_json_safe(os.path.join(DATA_DIR, FILES["dast"]))
     if isinstance(dast_data, dict) and "site" in dast_data:
         for site in dast_data.get("site", []):
             for alert in site.get("alerts", []):
-                # Depending on export version, uri may be inside instances.
-                uri = str(alert.get("uri", "")).strip()
+                plugin_id = str(alert.get("pluginid", "")).strip()
+                msg = alert.get("alert", "")
+                sev = normalize_zap_riskdesc(alert.get("riskdesc", ""))
 
-                if not uri:
-                    instances = alert.get("instances", []) or []
-                    if instances and isinstance(instances, list):
-                        uri = str(instances[0].get("uri", "")).strip()
+                # ZAP sometimes stores URLs inside "instances"
+                instances = alert.get("instances", [])
+                if isinstance(instances, list) and len(instances) > 0:
+                    for inst in instances:
+                        uri = str(inst.get("uri", "")).strip()
+                        if not uri:
+                            uri = str(alert.get("uri", "")).strip()
 
-                pluginid = str(alert.get("pluginid", "")).strip()
-                location = uri ( ) if uri else f"PLUGIN:{pluginid}"
-
-                combined.append({
-                    "tool": "DAST",
-                    "type": "VULNERABILITY",
-                    "severity": normalize_zap_riskdesc(alert.get("riskdesc", "")),
-                    "message": alert.get("alert", ""),
-                    "file": uri,            # endpoint stored here
-                    "rule": pluginid,
-                    "line": None,           # ✅ no line for DAST
-                    "location": uri if uri else f"PLUGIN:{pluginid}"
-                })
+                        combined.append({
+                            "tool": "DAST",
+                            "type": "VULNERABILITY",
+                            "severity": sev,
+                            "message": msg,
+                            "file": uri,            # keep raw endpoint in file
+                            "rule": plugin_id,
+                            "line": None,
+                            "location": uri         # ✅ endpoint location
+                        })
+                else:
+                    uri = str(alert.get("uri", "")).strip()
+                    combined.append({
+                        "tool": "DAST",
+                        "type": "VULNERABILITY",
+                        "severity": sev,
+                        "message": msg,
+                        "file": uri,
+                        "rule": plugin_id,
+                        "line": None,
+                        "location": uri
+                    })
 
     # =========================
-    # SCA — Snyk
+    # SCA — Snyk JSON output
     # =========================
     sca_data = load_json_safe(os.path.join(DATA_DIR, FILES["sca"]))
     if isinstance(sca_data, dict) and "vulnerabilities" in sca_data:
         for vuln in sca_data.get("vulnerabilities", []):
             pkg = str(vuln.get("packageName", "")).strip()
-            module = str(vuln.get("moduleName", "")).strip()  # often includes version
-            cve_id = str(vuln.get("id", "")).strip()
-            title = str(vuln.get("title", "")).strip()
-
-            # Better “location” for SCA is moduleName (usually pkg@version) when available
+            module = str(vuln.get("moduleName", "")).strip()
             location = module if module else pkg
 
             combined.append({
                 "tool": "SCA",
                 "type": "VULNERABILITY",
                 "severity": normalize_snyk_severity(vuln.get("severity", "")),
-                "message": title,
-                "file": pkg,             # package name
-                "rule": cve_id,
-                "line": None,            # ✅ no line for SCA
+                "message": vuln.get("title", ""),
+                "file": location,            # package/module is where it lives
+                "rule": str(vuln.get("id", "")).strip(),
+                "line": None,
                 "location": location
             })
 
