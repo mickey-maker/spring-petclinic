@@ -12,6 +12,29 @@ SUPPRESS_LIST_CSV = "astf-python/suppress_list.csv"
 
 
 # ===============================
+# HELPERS
+# ===============================
+def _to_int_or_none(val):
+    try:
+        if val is None:
+            return None
+        s = str(val).strip()
+        if s == "" or s.lower() == "none":
+            return None
+        return int(float(s))
+    except Exception:
+        return None
+
+
+def _safe_upper(x):
+    return str(x or "").strip().upper()
+
+
+def _safe_str(x):
+    return str(x or "").strip()
+
+
+# ===============================
 # LOAD & NORMALISE ASTF DATA
 # ===============================
 def load_combined(path: str) -> pd.DataFrame:
@@ -27,23 +50,49 @@ def load_combined(path: str) -> pd.DataFrame:
 
     rows = []
     for item in raw:
-        line_val = item.get("line", None)
-        try:
-            line_val = int(line_val) if line_val not in (None, "", "None") else None
-        except Exception:
-            line_val = None
+        tool = _safe_upper(item.get("tool", ""))
+        typ = _safe_upper(item.get("type", ""))
+        severity = _safe_upper(item.get("severity", ""))
+        message = item.get("message", "")
+        rule = _safe_str(item.get("rule", ""))
 
-        file_val = str(item.get("file", "")).strip()
-        location = f"{file_val}:{line_val}" if (file_val and line_val is not None) else file_val
+        # file
+        file_val = _safe_str(item.get("file", ""))
+
+        # line:
+        # ✅ supports:
+        # - new format: line is int
+        # - old/broken format: line was "file:123" or "uri"
+        raw_line = item.get("line", None)
+        line_val = _to_int_or_none(raw_line)
+
+        if line_val is None and isinstance(raw_line, str) and ":" in raw_line:
+            # try parse "...:123"
+            try:
+                maybe_line = raw_line.split(":")[-1].strip()
+                parsed = _to_int_or_none(maybe_line)
+                if parsed is not None:
+                    line_val = parsed
+                    # if file missing, try recover file from prefix
+                    if not file_val:
+                        file_val = ":".join(raw_line.split(":")[:-1]).strip()
+            except Exception:
+                pass
+
+        # location (string)
+        location = _safe_str(item.get("location", ""))
+        if not location:
+            location = f"{file_val}:{line_val}" if (file_val and line_val is not None) else file_val
 
         rows.append({
-            "tool": str(item.get("tool", "")).upper().strip(),
-            "type": str(item.get("type", "")).upper().strip(),
-            "severity": str(item.get("severity", "")).upper().strip(),
-            "message": item.get("message", ""),
+            "tool": tool,
+            "type": typ,
+            "severity": severity,
+            "message": message,
             "file": file_val,
-            "rule": str(item.get("rule", "")).strip(),
-            "line": str(item.get("line", "")).strip()
+            "rule": rule,
+            "line": line_val,          # ✅ int/None
+            "location": location       # ✅ always string
         })
 
     print("[ASTF] ✅ ASTF alerts loaded:", len(rows))
@@ -55,8 +104,7 @@ def load_combined(path: str) -> pd.DataFrame:
 # ===============================
 def deduplicate_alerts(df: pd.DataFrame) -> pd.DataFrame:
     before = len(df)
-    # include line in dedupe to avoid merging same rule/file but different lines
-    subset_cols = ["tool", "type", "rule", "file", "line"] if "line" in df.columns else ["tool", "type", "rule", "file"]
+    subset_cols = ["tool", "type", "rule", "file", "line"]
     df = df.drop_duplicates(subset=subset_cols)
     after = len(df)
     print(f"[ASTF] ✅ Deduplication: {before} → {after}")
@@ -93,14 +141,13 @@ def apply_priority_scoring(df: pd.DataFrame) -> pd.DataFrame:
 # ===============================
 def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LIST_CSV) -> pd.DataFrame:
     """
-    Automatically generates suppress_list.csv using conservative rules.
+    Generates suppress_list.csv using conservative rules (noise proxy).
+    ✅ Includes file + line + location so you can show the exact code location/endpoint.
 
-    Rule-based suppression (for Estimated FPR):
+    Rule-based suppression (proxy for FPR):
     - INFO severity => suppress (non-actionable)
     - SAST CODE_SMELL => suppress (quality issue)
     - LOW priority => suppress (noise proxy)
-
-    Adds 'line' + 'location' so you can see WHERE the suppressed alert occurs.
     """
     suppressed_rows = []
 
@@ -127,8 +174,8 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
                 "tool": tool,
                 "rule": rule,
                 "file": file_,
-                "line": line_,
-                "location": location,
+                "line": line_,          # ✅ stored as int/None
+                "location": location,   # ✅ stored as string
                 "reason": reason
             })
 
@@ -136,8 +183,8 @@ def auto_generate_suppress_list(df: pd.DataFrame, output_path: str = SUPPRESS_LI
     if sup_df.empty:
         sup_df = pd.DataFrame(columns=["tool", "rule", "file", "line", "location", "reason"])
 
-    # Keep suppression matching stable by tool/rule/file (line is for reporting)
-    sup_df.drop_duplicates(subset=["tool", "rule", "file"], inplace=True)
+    # ✅ suppression matching: tool/rule/file/line when line exists
+    sup_df.drop_duplicates(subset=["tool", "rule", "file", "line"], inplace=True)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     sup_df.to_csv(output_path, index=False)
@@ -167,6 +214,8 @@ def apply_suppression(df: pd.DataFrame, suppress_csv: str = SUPPRESS_LIST_CSV) -
         if col not in sup.columns:
             raise ValueError(f"[ERROR] suppress_list.csv missing required column: {col}")
 
+    if "line" not in sup.columns:
+        sup["line"] = None
     if "reason" not in sup.columns:
         sup["reason"] = ""
 
@@ -174,14 +223,21 @@ def apply_suppression(df: pd.DataFrame, suppress_csv: str = SUPPRESS_LIST_CSV) -
     sup["tool"] = sup["tool"].astype(str).str.upper().str.strip()
     sup["rule"] = sup["rule"].astype(str).str.strip()
     sup["file"] = sup["file"].astype(str).str.strip()
+    sup["line"] = sup["line"].apply(_to_int_or_none)
     sup["reason"] = sup["reason"].astype(str).str.strip()
 
     df["tool"] = df["tool"].astype(str).str.upper().str.strip()
     df["rule"] = df["rule"].astype(str).str.strip()
     df["file"] = df["file"].astype(str).str.strip()
+    df["line"] = df["line"].apply(_to_int_or_none)
 
-    df["__key"] = df["tool"] + "|" + df["rule"] + "|" + df["file"]
-    sup["__key"] = sup["tool"] + "|" + sup["rule"] + "|" + sup["file"]
+    # ✅ key includes line when available (more accurate)
+    def make_key(tool, rule, file_, line_):
+        base = f"{tool}|{rule}|{file_}"
+        return f"{base}|{line_}" if line_ is not None else base
+
+    sup["__key"] = sup.apply(lambda r: make_key(r["tool"], r["rule"], r["file"], r["line"]), axis=1)
+    df["__key"] = df.apply(lambda r: make_key(r["tool"], r["rule"], r["file"], r["line"]), axis=1)
 
     suppress_keys = set(sup["__key"].tolist())
     reason_map = dict(zip(sup["__key"], sup["reason"]))
@@ -196,26 +252,61 @@ def apply_suppression(df: pd.DataFrame, suppress_csv: str = SUPPRESS_LIST_CSV) -
 
 
 # ===============================
-# TRIAGE METRICS (Estimated FPR)
+# TRIAGE METRICS (EXPANDED)
 # ===============================
-def generate_metrics_df(df: pd.DataFrame) -> pd.DataFrame:
+def generate_metrics_df(df: pd.DataFrame, raw_total_before_dedupe: int = None) -> pd.DataFrame:
     total = len(df)
     suppressed = int(df["suppressed"].sum()) if "suppressed" in df.columns else 0
-    estimated_fpr = round((suppressed / total) * 100, 2) if total > 0 else 0
+    actionable = total - suppressed
 
-    metrics = {
-        "Metric": [
-            "Total Alerts",
-            "Suppressed Alerts (Rule-Based)",
-            "Estimated False Positive Rate (%)"
-        ],
-        "Value": [
-            total,
-            suppressed,
-            estimated_fpr
-        ]
-    }
-    return pd.DataFrame(metrics)
+    suppression_rate = round((suppressed / total) * 100, 2) if total > 0 else 0
+    actionable_rate = round((actionable / total) * 100, 2) if total > 0 else 0
+
+    # High/Critical focus ratio
+    high_crit = int(df["priority"].isin(["HIGH", "CRITICAL"]).sum()) if "priority" in df.columns else 0
+    high_crit_rate = round((high_crit / total) * 100, 2) if total > 0 else 0
+
+    # Severity distribution
+    sev_counts = df["severity"].value_counts(dropna=False).to_dict() if "severity" in df.columns else {}
+    pri_counts = df["priority"].value_counts(dropna=False).to_dict() if "priority" in df.columns else {}
+    tool_counts = df["tool"].value_counts(dropna=False).to_dict() if "tool" in df.columns else {}
+
+    # Dedupe rate (if caller provides raw pre-dedupe count)
+    dedupe_rate = None
+    if raw_total_before_dedupe is not None and raw_total_before_dedupe > 0:
+        dedupe_rate = round(((raw_total_before_dedupe - total) / raw_total_before_dedupe) * 100, 2)
+
+    # Estimated FPR (proxy) = suppressed rate
+    estimated_fpr = suppression_rate
+
+    rows = [
+        ("Total Alerts (Post-Dedup)", total, "Alerts after normalization + deduplication"),
+        ("Suppressed Alerts (Rule-Based)", suppressed, "Noise removed via suppress_list.csv rules"),
+        ("Actionable Alerts", actionable, "Alerts remaining for developer/security action"),
+        ("Suppression Rate (%)", suppression_rate, "Suppressed / Total * 100 (noise reduction)"),
+        ("Actionable Rate (%)", actionable_rate, "Actionable / Total * 100"),
+        ("Estimated False Positive Rate (%)", estimated_fpr, "Proxy: suppressed alerts treated as false positives"),
+        ("High+Critical Priority Alerts", high_crit, "Count of alerts prioritized HIGH or CRITICAL"),
+        ("High+Critical Ratio (%)", high_crit_rate, "High+Critical / Total * 100"),
+    ]
+
+    if dedupe_rate is not None:
+        rows.insert(0, ("Deduplication Reduction (%)", dedupe_rate, "((Raw - PostDedup)/Raw)*100"))
+
+    # Add compact distributions as metric rows (good for thesis tables)
+    for k in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
+        if k in sev_counts:
+            rows.append((f"Severity Count: {k}", int(sev_counts.get(k, 0)), "Distribution (severity)"))
+
+    for k in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+        if k in pri_counts:
+            rows.append((f"Priority Count: {k}", int(pri_counts.get(k, 0)), "Distribution (priority)"))
+
+    for tool, cnt in tool_counts.items():
+        rows.append((f"Tool Count: {tool}", int(cnt), "Distribution (tool source)"))
+
+    metrics_df = pd.DataFrame(rows, columns=["Metric", "Value", "Notes"])
+    return metrics_df
 
 
 # ===============================
@@ -401,23 +492,23 @@ def main():
     print("[ASTF] combined_astf.json:", os.path.abspath(INPUT_FILE))
     print("[ASTF] suppress_list.csv:", os.path.abspath(SUPPRESS_LIST_CSV))
 
-    df = load_combined(INPUT_FILE)
-    if df.empty:
+    # Load once to capture raw count (for dedupe metric)
+    df_raw = load_combined(INPUT_FILE)
+    if df_raw.empty:
         print("[ASTF] ❌ No alerts detected. STOPPING.")
         return
 
-    df = deduplicate_alerts(df)
+    raw_total_before_dedupe = len(df_raw)
+
+    df = deduplicate_alerts(df_raw)
     df = apply_priority_scoring(df)
 
-    # Generate suppress_list.csv automatically + keep a DF copy for Excel sheet
     suppress_df = auto_generate_suppress_list(df, SUPPRESS_LIST_CSV)
-
-    # Apply suppression flags + reasons
     df = apply_suppression(df, SUPPRESS_LIST_CSV)
 
-    metrics_df = generate_metrics_df(df)
+    metrics_df = generate_metrics_df(df, raw_total_before_dedupe=raw_total_before_dedupe)
 
-    # MAIN columns only (no JSON dump)
+    # raw views
     sast_df = load_sast_raw_main()
     dast_df = load_dast_raw_main()
     sca_df = load_sca_raw_main()
