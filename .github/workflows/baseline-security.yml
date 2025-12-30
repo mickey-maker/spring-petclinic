@@ -144,3 +144,9 @@ jobs:
         with:
           name: baseline-output
           path: astf-python/output/baseline_alerts.csv
+
+      - name: Print Baseline Artifact Download URL
+        run: |
+          echo "Artifact baseline-output has been successfully uploaded!"
+          echo "Artifact download URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+
