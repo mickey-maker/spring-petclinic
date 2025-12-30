@@ -39,7 +39,7 @@ jobs:
           python -m pip install --upgrade pip
 
       # =========================
-      # 4. SAST - SONARCLOUD (SCAN)
+      # 4. SAST - SONARCLOUD
       # =========================
       - name: Run SAST (SonarCloud)
         env:
@@ -48,7 +48,8 @@ jobs:
           mvn -B clean verify sonar:sonar \
           -Dsonar.projectKey=mickey-maker_spring-petclinic \
           -Dsonar.organization=mickey-maker \
-          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
       - name: Export SAST JSON from SonarCloud
         env:
@@ -60,13 +61,12 @@ jobs:
           -o astf-python/data/sast.json
 
       # =========================
-      # 5. START SPRING BOOT APP (FOR DAST)
+      # 5. START SPRING BOOT APP
       # =========================
       - name: Start Spring Boot App
         run: |
           nohup mvn spring-boot:run > app.log 2>&1 &
           sleep 60
-      
 
       # =========================
       # 6. WAIT FOR APP TO BE READY
@@ -79,10 +79,9 @@ jobs:
             echo "Still waiting..."
             sleep 5
           done
-      
 
       # =========================
-      # 7. RUN DAST (OWASP ZAP)
+      # 7. DAST - OWASP ZAP
       # =========================
       - name: Prepare DAST Output Folder
         run: |
@@ -98,10 +97,9 @@ jobs:
             -t http://127.0.0.1:8080 \
             -J /zap/wrk/astf-python/data/dast.json \
             -r /zap/wrk/astf-python/data/zap-report.html || true
-      
 
       # =========================
-      # 8. RUN SCA (SNYK) — FIXED
+      # 8. SCA - SNYK
       # =========================
       - name: Run SCA (Snyk CLI)
         run: |
@@ -115,17 +113,34 @@ jobs:
           mv sca.json astf-python/data/sca.json || echo '{}' > astf-python/data/sca.json
 
       # =========================
-      # 9. GENERATE BASELINE CSV
+      # 9. PREPARE BASELINE OUTPUT
+      # =========================
+      - name: Prepare Baseline Output Folder
+        run: |
+          mkdir -p astf-python/output
+
+      # =========================
+      # 10. GENERATE BASELINE CSV
       # =========================
       - name: Generate Baseline Alerts CSV
         run: |
           python astf-python/baseline_generator.py
 
       # =========================
-      # 9. UPLOAD BASELINE ARTIFACT
+      # 11. DEBUG BASELINE OUTPUT
+      # =========================
+      - name: Debug Baseline Output
+        run: |
+          echo "=== Baseline Output Folder ==="
+          ls -lah astf-python/output || true
+          echo "=== CSV Line Count ==="
+          wc -l astf-python/output/baseline_alerts.csv || true
+
+      # =========================
+      # 12. UPLOAD BASELINE ARTIFACT
       # =========================
       - name: Upload Baseline Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: baseline-alerts
+          name: baseline-output
           path: astf-python/output/baseline_alerts.csv
