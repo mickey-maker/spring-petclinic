@@ -10,6 +10,11 @@ FILES = {
     "sca": "sca.json"
 }
 
+sast_count = 0
+dast_count = 0
+sca_count = 0
+
+
 
 def normalize_sonar_severity(sev: str) -> str:
     s = str(sev or "").strip().upper()
@@ -91,6 +96,8 @@ def main():
                 "line": line_no,            # ✅ numeric line (or None)
                 "location": location        # ✅ file:line
             })
+            sast_count += 1
+
 
     # =========================
     # DAST — OWASP ZAP JSON report
@@ -135,6 +142,9 @@ def main():
             "location": uri
         })
 
+        dast_count += 1
+
+
     # =========================
     # SCA — Snyk JSON output
     # =========================
@@ -156,6 +166,9 @@ def main():
                 "location": location
             })
 
+            sca_count += 1
+
+
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(combined, f, indent=2)
@@ -163,6 +176,11 @@ def main():
     print(f"[ASTF] ✅ Combined ASTF file created: {OUTPUT_FILE}")
     print(f"[ASTF] ✅ Total merged alerts: {len(combined)}")
 
+
+print("[COMBINER] SAST alerts:", sast_count)
+print("[COMBINER] DAST alerts:", dast_count)
+print("[COMBINER] SCA alerts:", sca_count)
+print("[COMBINER] TOTAL alerts:", len(combined))
 
 if __name__ == "__main__":
     main()
