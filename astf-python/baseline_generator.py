@@ -1,27 +1,28 @@
 """
-BASELINE ALERT GENERATOR
+BASELINE ALERT GENERATOR (SEPARATE SHEETS ONLY)
 
 Purpose:
-- Generate baseline security alerts from raw SAST, DAST, and SCA outputs
-- No deduplication
-- No suppression
-- No prioritisation or scoring
-- Used for Chapter 5 baseline comparison against ASTF
+- Generate baseline security alerts
+- NO deduplication
+- NO suppression
+- NO aggregation / combination
+- Each tool is stored in its own sheet
 
-Output:
-- astf-python/output/baseline_alerts.csv
+Outputs:
+- baseline_master.xlsx
 """
 
 import os
 import json
-import csv
+import pandas as pd
 
 # ===============================
 # CONFIGURATION
 # ===============================
 DATA_DIR = "astf-python/data"
 OUTPUT_DIR = "astf-python/output"
-OUTPUT_CSV = os.path.join(OUTPUT_DIR, "baseline_alerts.csv")
+
+OUTPUT_XLSX = os.path.join(OUTPUT_DIR, "baseline_master.xlsx")
 
 FILES = {
     "sast": "sast.json",
@@ -32,7 +33,7 @@ FILES = {
 # ===============================
 # HELPERS
 # ===============================
-def load_json_safe(path: str):
+def load_json_safe(path):
     if not os.path.exists(path):
         print(f"[BASELINE] ⚠ Missing file: {path}")
         return {}
@@ -46,15 +47,7 @@ def load_json_safe(path: str):
         print(f"[BASELINE] ❌ Failed to parse JSON {path}: {e}")
         return {}
 
-def to_int_or_none(x):
-    if x in (None, "", "None"):
-        return None
-    try:
-        return int(str(x).strip())
-    except Exception:
-        return None
-
-def normalize_sonar_severity(sev: str) -> str:
+def normalize_sonar_severity(sev):
     mapping = {
         "BLOCKER": "CRITICAL",
         "CRITICAL": "HIGH",
@@ -62,10 +55,10 @@ def normalize_sonar_severity(sev: str) -> str:
         "MINOR": "LOW",
         "INFO": "INFO"
     }
-    return mapping.get(str(sev or "").upper().strip(), "INFO")
+    return mapping.get(str(sev or "").upper(), "INFO")
 
-def normalize_zap_riskdesc(riskdesc: str) -> str:
-    text = str(riskdesc or "").upper().strip()
+def normalize_zap_severity(riskdesc):
+    text = str(riskdesc or "").upper()
     if not text:
         return "INFO"
     first = text.split()[0]
@@ -75,8 +68,8 @@ def normalize_zap_riskdesc(riskdesc: str) -> str:
         return first
     return "INFO"
 
-def normalize_snyk_severity(sev: str) -> str:
-    s = str(sev or "").upper().strip()
+def normalize_snyk_severity(sev):
+    s = str(sev or "").upper()
     if s in {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}:
         return s
     return "INFO"
@@ -87,29 +80,27 @@ def normalize_snyk_severity(sev: str) -> str:
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    rows = []
-    print("[BASELINE] Generating baseline alerts (raw tool outputs only)")
+    baseline_sast = []
+    baseline_dast = []
+    baseline_sca = []
+
+    print("[BASELINE] Generating baseline alerts (NO aggregation)")
 
     # =========================
     # SAST — SonarCloud
     # =========================
     sast_data = load_json_safe(os.path.join(DATA_DIR, FILES["sast"]))
     if isinstance(sast_data, dict) and "issues" in sast_data:
-        for issue in sast_data.get("issues", []):
-            file_path = str(issue.get("component", "")).strip()
-            line_no = to_int_or_none(issue.get("line", None))
-            location = f"{file_path}:{line_no}" if (file_path and line_no is not None) else file_path
-
-            rows.append({
+        for issue in sast_data["issues"]:
+            baseline_sast.append({
                 "tool": "SAST",
-                "alert_id": str(issue.get("key", "")).strip(),
-                "type": str(issue.get("type", "UNKNOWN")).upper().strip(),
-                "severity": normalize_sonar_severity(issue.get("severity", "")),
-                "message": issue.get("message", ""),
-                "rule": str(issue.get("rule", "")).strip(),
-                "location": location,
-                "file_or_endpoint": file_path,
-                "line": line_no
+                "alert_id": issue.get("key"),
+                "type": str(issue.get("type", "")).upper(),
+                "severity": normalize_sonar_severity(issue.get("severity")),
+                "message": issue.get("message"),
+                "rule": issue.get("rule"),
+                "file": issue.get("component"),
+                "line": issue.get("line")
             })
 
     # =========================
@@ -117,39 +108,33 @@ def main():
     # =========================
     dast_data = load_json_safe(os.path.join(DATA_DIR, FILES["dast"]))
     if isinstance(dast_data, dict) and "site" in dast_data:
-        for site in dast_data.get("site", []):
+        for site in dast_data["site"]:
             for alert in site.get("alerts", []):
-                plugin_id = str(alert.get("pluginid", "")).strip()
-                msg = alert.get("alert", "")
-                sev = normalize_zap_riskdesc(alert.get("riskdesc", ""))
+                sev = normalize_zap_severity(alert.get("riskdesc"))
+                plugin = alert.get("pluginid")
+                msg = alert.get("alert")
 
                 instances = alert.get("instances", [])
-                if isinstance(instances, list) and instances:
+                if instances:
                     for inst in instances:
-                        uri = str(inst.get("uri", "")).strip() or str(alert.get("uri", "")).strip()
-                        rows.append({
+                        baseline_dast.append({
                             "tool": "DAST",
-                            "alert_id": plugin_id,
+                            "alert_id": plugin,
                             "type": "VULNERABILITY",
                             "severity": sev,
                             "message": msg,
-                            "rule": plugin_id,
-                            "location": uri,
-                            "file_or_endpoint": uri,
-                            "line": None
+                            "url": inst.get("uri"),
+                            "param": inst.get("param")
                         })
                 else:
-                    uri = str(alert.get("uri", "")).strip()
-                    rows.append({
+                    baseline_dast.append({
                         "tool": "DAST",
-                        "alert_id": plugin_id,
+                        "alert_id": plugin,
                         "type": "VULNERABILITY",
                         "severity": sev,
                         "message": msg,
-                        "rule": plugin_id,
-                        "location": uri,
-                        "file_or_endpoint": uri,
-                        "line": None
+                        "url": alert.get("uri"),
+                        "param": None
                     })
 
     # =========================
@@ -157,39 +142,29 @@ def main():
     # =========================
     sca_data = load_json_safe(os.path.join(DATA_DIR, FILES["sca"]))
     if isinstance(sca_data, dict) and "vulnerabilities" in sca_data:
-        for vuln in sca_data.get("vulnerabilities", []):
-            pkg = str(vuln.get("packageName", "")).strip()
-            module = str(vuln.get("moduleName", "")).strip()
-            location = module if module else pkg
-
-            rows.append({
+        for vuln in sca_data["vulnerabilities"]:
+            baseline_sca.append({
                 "tool": "SCA",
-                "alert_id": str(vuln.get("id", "")).strip(),
+                "alert_id": vuln.get("id"),
                 "type": "VULNERABILITY",
-                "severity": normalize_snyk_severity(vuln.get("severity", "")),
-                "message": vuln.get("title", ""),
-                "rule": str(vuln.get("id", "")).strip(),
-                "location": location,
-                "file_or_endpoint": location,
-                "line": None
+                "severity": normalize_snyk_severity(vuln.get("severity")),
+                "message": vuln.get("title"),
+                "package": vuln.get("packageName"),
+                "version": vuln.get("version")
             })
 
     # =========================
-    # WRITE CSV (ALWAYS)
+    # SAVE EXCEL (SEPARATE SHEETS)
     # =========================
-    headers = [
-        "tool", "alert_id", "type", "severity",
-        "message", "rule", "location",
-        "file_or_endpoint", "line"
-    ]
+    with pd.ExcelWriter(OUTPUT_XLSX, engine="openpyxl") as writer:
+        pd.DataFrame(baseline_sast).to_excel(writer, sheet_name="BASELINE_SAST", index=False)
+        pd.DataFrame(baseline_dast).to_excel(writer, sheet_name="BASELINE_DAST", index=False)
+        pd.DataFrame(baseline_sca).to_excel(writer, sheet_name="BASELINE_SCA", index=False)
 
-    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=headers)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    print(f"[BASELINE] ✅ baseline_alerts.csv written: {OUTPUT_CSV}")
-    print(f"[BASELINE] ✅ Total baseline alerts: {len(rows)}")
+    print("[BASELINE] ✅ baseline_master.xlsx created")
+    print(f"[BASELINE] SAST alerts: {len(baseline_sast)}")
+    print(f"[BASELINE] DAST alerts: {len(baseline_dast)}")
+    print(f"[BASELINE] SCA alerts: {len(baseline_sca)}")
 
 if __name__ == "__main__":
     main()
