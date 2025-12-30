@@ -1,0 +1,90 @@
+name: Baseline Security Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  baseline-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      # =========================
+      # 1. CHECKOUT REPOSITORY
+      # =========================
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # =========================
+      # 2. SETUP PYTHON
+      # =========================
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # =========================
+      # 3. INSTALL PYTHON DEPENDENCIES
+      # =========================
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+
+      # =========================
+      # 4. RUN SAST (SONAR)
+      # =========================
+      - name: Run SAST (SonarCloud)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn -B clean verify sonar:sonar \
+          -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+          -Dsonar.organization=${{ secrets.SONAR_ORG }} \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+      # =========================
+      # 5. EXPORT SAST JSON
+      # =========================
+      - name: Export Sonar JSON
+        run: |
+          mkdir -p astf-python/data
+          cp sonar-report.json astf-python/data/sast.json || true
+
+      # =========================
+      # 6. RUN DAST (OWASP ZAP)
+      # =========================
+      - name: Run DAST (OWASP ZAP)
+        run: |
+          docker run --rm -v $(pwd):/zap/wrk/:rw \
+          ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+          -t http://localhost:8080 \
+          -J astf-python/data/dast.json || true
+
+      # =========================
+      # 7. RUN SCA (SNYK / DEPENDABOT)
+      # =========================
+      - name: Run SCA (Snyk)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk test --json > astf-python/data/sca.json || true
+
+      # =========================
+      # 8. GENERATE BASELINE CSV
+      # =========================
+      - name: Generate Baseline Alerts CSV
+        run: |
+          python baseline_generator.py
+
+      # =========================
+      # 9. UPLOAD BASELINE ARTIFACT
+      # =========================
+      - name: Upload Baseline Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-alerts
+          path: baseline_alerts.csv
