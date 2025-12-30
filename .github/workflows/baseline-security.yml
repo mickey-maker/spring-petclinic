@@ -11,6 +11,11 @@ jobs:
   baseline-security:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      security-events: read
+      issues: read
+
     steps:
       # =========================
       # 1. CHECKOUT REPOSITORY
@@ -34,51 +39,87 @@ jobs:
           python -m pip install --upgrade pip
 
       # =========================
-      # 4. RUN SAST (SONAR)
+      # 4. SAST - SONARCLOUD (SCAN)
       # =========================
       - name: Run SAST (SonarCloud)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           mvn -B clean verify sonar:sonar \
-          -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
-          -Dsonar.organization=${{ secrets.SONAR_ORG }} \
-          -Dsonar.host.url=https://sonarcloud.io \
-          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+          -Dsonar.projectKey=mickey-maker_spring-petclinic \
+          -Dsonar.organization=mickey-maker \
+          -Dsonar.host.url=https://sonarcloud.io
 
-      # =========================
-      # 5. EXPORT SAST JSON
-      # =========================
-      - name: Export Sonar JSON
+      - name: Export SAST JSON from SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           mkdir -p astf-python/data
-          cp sonar-report.json astf-python/data/sast.json || true
+          curl -s -u $SONAR_TOKEN: \
+          "https://sonarcloud.io/api/issues/search?componentKeys=mickey-maker_spring-petclinic&types=VULNERABILITY,BUG,CODE_SMELL&ps=500" \
+          -o astf-python/data/sast.json
 
       # =========================
-      # 6. RUN DAST (OWASP ZAP)
+      # 5. START SPRING BOOT APP (FOR DAST)
       # =========================
+      - name: Start Spring Boot App
+        run: |
+          nohup mvn spring-boot:run > app.log 2>&1 &
+          sleep 60
+      
+
+      # =========================
+      # 6. WAIT FOR APP TO BE READY
+      # =========================
+      - name: Wait for Spring Boot
+        run: |
+          echo "Waiting for Spring Boot to be ready..."
+          for i in {1..20}; do
+            curl -s http://127.0.0.1:8080 && break
+            echo "Still waiting..."
+            sleep 5
+          done
+      
+
+      # =========================
+      # 7. RUN DAST (OWASP ZAP)
+      # =========================
+      - name: Prepare DAST Output Folder
+        run: |
+          mkdir -p astf-python/data
+          chmod -R 777 astf-python/data
+
       - name: Run DAST (OWASP ZAP)
         run: |
-          docker run --rm -v $(pwd):/zap/wrk/:rw \
-          ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
-          -t http://localhost:8080 \
-          -J astf-python/data/dast.json || true
+          docker run --rm --network=host \
+            -u root \
+            -v $(pwd):/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py \
+            -t http://127.0.0.1:8080 \
+            -J /zap/wrk/astf-python/data/dast.json \
+            -r /zap/wrk/astf-python/data/zap-report.html || true
+      
 
       # =========================
-      # 7. RUN SCA (SNYK / DEPENDABOT)
+      # 8. RUN SCA (SNYK) — FIXED
       # =========================
-      - name: Run SCA (Snyk)
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Run SCA (Snyk CLI)
         run: |
-          snyk test --json > astf-python/data/sca.json || true
+          npm install -g snyk
+          snyk auth ${{ secrets.SNYK_TOKEN }}
+          snyk test --json > sca.json || true
+
+      - name: Move SCA Result
+        run: |
+          mkdir -p astf-python/data
+          mv sca.json astf-python/data/sca.json || echo '{}' > astf-python/data/sca.json
 
       # =========================
-      # 8. GENERATE BASELINE CSV
+      # 9. GENERATE BASELINE CSV
       # =========================
       - name: Generate Baseline Alerts CSV
         run: |
-          python baseline_generator.py
+          python astf-python/baseline_generator.py
 
       # =========================
       # 9. UPLOAD BASELINE ARTIFACT
@@ -87,4 +128,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: baseline-alerts
-          path: baseline_alerts.csv
+          path: astf-python/output/baseline_alerts.csv
