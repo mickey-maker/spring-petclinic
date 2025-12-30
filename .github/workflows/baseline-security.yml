@@ -1,11 +1,10 @@
 name: Baseline Security Pipeline
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   baseline-security:
@@ -17,29 +16,33 @@ jobs:
       issues: read
 
     steps:
+
       # =========================
-      # 1. CHECKOUT REPOSITORY
+      # ✅ 1. CHECKOUT SOURCE
       # =========================
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+
       # =========================
-      # 2. SETUP PYTHON
+      # ✅ 2. SETUP JAVA 17
       # =========================
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
-          python-version: "3.10"
+          distribution: 'zulu'
+          java-version: '17'
+
 
       # =========================
-      # 3. INSTALL PYTHON DEPENDENCIES
+      # ✅ 3. BUILD APPLICATION
       # =========================
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
+      - name: Build with Maven
+        run: mvn -B clean package
+
 
       # =========================
-      # 4. SAST - SONARCLOUD
+      # ✅ 4. SAST - SONARCLOUD (SCAN)
       # =========================
       - name: Run SAST (SonarCloud)
         env:
@@ -48,8 +51,7 @@ jobs:
           mvn -B clean verify sonar:sonar \
           -Dsonar.projectKey=mickey-maker_spring-petclinic \
           -Dsonar.organization=mickey-maker \
-          -Dsonar.host.url=https://sonarcloud.io \
-          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+          -Dsonar.host.url=https://sonarcloud.io
 
       - name: Export SAST JSON from SonarCloud
         env:
@@ -61,15 +63,16 @@ jobs:
           -o astf-python/data/sast.json
 
       # =========================
-      # 5. START SPRING BOOT APP
+      # ✅ 5. START SPRING BOOT APP (FOR DAST)
       # =========================
       - name: Start Spring Boot App
         run: |
           nohup mvn spring-boot:run > app.log 2>&1 &
           sleep 60
+      
 
       # =========================
-      # 6. WAIT FOR APP TO BE READY
+      # ✅ 6. WAIT FOR APP TO BE READY (CRITICAL FIX)
       # =========================
       - name: Wait for Spring Boot
         run: |
@@ -79,9 +82,10 @@ jobs:
             echo "Still waiting..."
             sleep 5
           done
+      
 
       # =========================
-      # 7. DAST - OWASP ZAP
+      # ✅ 7. RUN DAST (OWASP ZAP)
       # =========================
       - name: Prepare DAST Output Folder
         run: |
@@ -97,9 +101,10 @@ jobs:
             -t http://127.0.0.1:8080 \
             -J /zap/wrk/astf-python/data/dast.json \
             -r /zap/wrk/astf-python/data/zap-report.html || true
+      
 
       # =========================
-      # 8. SCA - SNYK
+      # ✅ 8. RUN SCA (SNYK) — FIXED
       # =========================
       - name: Run SCA (Snyk CLI)
         run: |
@@ -111,36 +116,36 @@ jobs:
         run: |
           mkdir -p astf-python/data
           mv sca.json astf-python/data/sca.json || echo '{}' > astf-python/data/sca.json
+      
 
       # =========================
-      # 9. PREPARE BASELINE OUTPUT
+      # ✅ 9. SETUP PYTHON
       # =========================
-      - name: Prepare Baseline Output Folder
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+
+      # =========================
+      # ✅ 10. INSTALL PYTHON DEPENDENCIES
+      # =========================
+      - name: Install Python Dependencies
         run: |
-          mkdir -p astf-python/output
+          pip install pandas openpyxl
 
       # =========================
-      # 10. GENERATE BASELINE CSV
+      # 7. GENERATE BASELINE OUTPUT
       # =========================
-      - name: Generate Baseline Alerts CSV
+      - name: Generate baseline Excel (no aggregation)
         run: |
-          python astf-python/baseline_generator.py
+          python baseline_generator.py
 
       # =========================
-      # 11. DEBUG BASELINE OUTPUT
+      # 8. UPLOAD ARTIFACT
       # =========================
-      - name: Debug Baseline Output
-        run: |
-          echo "=== Baseline Output Folder ==="
-          ls -lah astf-python/output || true
-          echo "=== CSV Line Count ==="
-          wc -l astf-python/output/baseline_alerts.csv || true
-
-      # =========================
-      # 12. UPLOAD BASELINE ARTIFACT
-      # =========================
-      - name: Upload Baseline Artifact
+      - name: Upload baseline results
         uses: actions/upload-artifact@v4
         with:
-          name: baseline-output
-          path: astf-python/output/baseline_alerts.csv
+          name: baseline-security-output
+          path: astf-python/output/baseline_master.xlsx
