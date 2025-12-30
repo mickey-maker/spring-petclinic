@@ -95,6 +95,7 @@ def main():
     # =========================
     # DAST — OWASP ZAP JSON report
     # =========================
+
     dast_data = load_json_safe(os.path.join(DATA_DIR, FILES["dast"]))
     if isinstance(dast_data, dict) and "site" in dast_data:
         for site in dast_data.get("site", []):
@@ -103,36 +104,25 @@ def main():
                 msg = alert.get("alert", "")
                 sev = normalize_zap_riskdesc(alert.get("riskdesc", ""))
 
-                # ZAP sometimes stores URLs inside "instances"
-                instances = alert.get("instances", [])
-                if isinstance(instances, list) and len(instances) > 0:
-                    for inst in instances:
-                        uri = str(inst.get("uri", "")).strip()
-                        if not uri:
-                            uri = str(alert.get("uri", "")).strip()
+                # Use ONE alert per ZAP rule (baseline-aligned)
+                uri = str(alert.get("uri", "")).strip()
 
-                        combined.append({
-                            "tool": "DAST",
-                            "type": "VULNERABILITY",
-                            "severity": sev,
-                            "message": msg,
-                            "file": uri,            # keep raw endpoint in file
-                            "rule": plugin_id,
-                            "line": None,
-                            "location": uri         # ✅ endpoint location
-                        })
-                else:
-                    uri = str(alert.get("uri", "")).strip()
-                    combined.append({
-                        "tool": "DAST",
-                        "type": "VULNERABILITY",
-                        "severity": sev,
-                        "message": msg,
-                        "file": uri,
-                        "rule": plugin_id,
-                        "line": None,
-                        "location": uri
-                    })
+                # Fallback: take first instance URI if main URI missing
+                if not uri:
+                    instances = alert.get("instances", [])
+                    if isinstance(instances, list) and len(instances) > 0:
+                        uri = str(instances[0].get("uri", "")).strip()
+
+                combined.append({
+                    "tool": "DAST",
+                    "type": "VULNERABILITY",
+                    "severity": sev,
+                    "message": msg,
+                    "file": uri,            # raw endpoint
+                    "rule": plugin_id,
+                    "line": None,
+                    "location": uri         # endpoint location
+                })
 
     # =========================
     # SCA — Snyk JSON output
