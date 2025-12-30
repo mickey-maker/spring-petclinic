@@ -104,25 +104,36 @@ def main():
                 msg = alert.get("alert", "")
                 sev = normalize_zap_riskdesc(alert.get("riskdesc", ""))
 
-                # Use ONE alert per ZAP rule (baseline-aligned)
-                uri = str(alert.get("uri", "")).strip()
+                # ZAP sometimes stores URLs inside "instances"
+                instances = alert.get("instances", [])
+                if isinstance(instances, list) and len(instances) > 0:
+                    for inst in instances:
+                        uri = str(inst.get("uri", "")).strip()
+                        if not uri:
+                            uri = str(alert.get("uri", "")).strip()
 
-                # Fallback: take first instance URI if main URI missing
-                if not uri:
-                    instances = alert.get("instances", [])
-                    if isinstance(instances, list) and len(instances) > 0:
-                        uri = str(instances[0].get("uri", "")).strip()
-
-                combined.append({
-                    "tool": "DAST",
-                    "type": "VULNERABILITY",
-                    "severity": sev,
-                    "message": msg,
-                    "file": uri,            # raw endpoint
-                    "rule": plugin_id,
-                    "line": None,
-                    "location": uri         # endpoint location
-                })
+                        combined.append({
+                            "tool": "DAST",
+                            "type": "VULNERABILITY",
+                            "severity": sev,
+                            "message": msg,
+                            "file": uri,            # keep raw endpoint in file
+                            "rule": plugin_id,
+                            "line": None,
+                            "location": uri
+                        })
+    else:
+        uri = str(alert.get("uri", "")).strip()
+        combined.append({
+            "tool": "DAST",
+            "type": "VULNERABILITY",
+            "severity": sev,
+            "message": msg,
+            "file": uri,
+            "rule": plugin_id,
+            "line": None,
+            "location": uri
+        })
 
     # =========================
     # SCA — Snyk JSON output
