@@ -139,7 +139,7 @@ jobs:
       # =========================
       - name: Generate baseline Excel (no aggregation)
         run: |
-          python baseline_generator.py
+          python astf-python/baseline_generator.py
 
       # =========================
       # 8. UPLOAD ARTIFACT
