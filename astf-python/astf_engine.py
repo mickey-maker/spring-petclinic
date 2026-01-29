@@ -93,6 +93,24 @@ def deduplicate_alerts(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def capture_duplicates(df_raw: pd.DataFrame) -> pd.DataFrame:
+    key_cols = ["tool", "type", "rule", "location"]
+
+    grouped = (
+        df_raw
+        .groupby(key_cols)
+        .size()
+        .reset_index(name="count")
+    )
+
+    duplicates = grouped[grouped["count"] > 1].copy()
+    duplicates.rename(columns={"count": "duplicate_count"}, inplace=True)
+
+    duplicates = duplicates.sort_values("duplicate_count", ascending=False)
+
+    print("[ASTF] 🔁 Duplicate groups found:", len(duplicates))
+    return duplicates
+
 # ===============================
 # PRIORITY SCORING
 # ===============================
@@ -412,6 +430,7 @@ def apply_global_formatting(excel_path: str):
 def save_excel(astf_df: pd.DataFrame,
                metrics_df: pd.DataFrame,
                suppress_df: pd.DataFrame,
+               duplicates_df: pd.DataFrame,
                sast_df: pd.DataFrame,
                dast_df: pd.DataFrame,
                sca_df: pd.DataFrame) -> str:
@@ -436,7 +455,7 @@ def save_excel(astf_df: pd.DataFrame,
         astf_df.to_excel(writer, sheet_name="ASTF_FINAL", index=False)
         metrics_df.to_excel(writer, sheet_name="TRIAGE_METRICS", index=False)
         suppress_df.to_excel(writer, sheet_name="SUPPRESS_LIST", index=False)
-
+        duplicates_df.to_excel(writer, sheet_name="DUPLICATES_REMOVED", index=False)
         sast_df.to_excel(writer, sheet_name="SAST_RAW_LIST", index=False)
         dast_df.to_excel(writer, sheet_name="DAST_RAW_LIST", index=False)
         sca_df.to_excel(writer, sheet_name="SCA_RAW_LIST", index=False)
@@ -459,6 +478,8 @@ def main():
         print("[ASTF] ❌ No alerts detected. STOPPING.")
         return
 
+    duplicates_df = capture_duplicates(df_raw)
+
     raw_before_dedup = len(df_raw)
 
     df = deduplicate_alerts(df_raw)
@@ -477,7 +498,7 @@ def main():
     dast_df = load_dast_raw_main()
     sca_df = load_sca_raw_main()
 
-    excel_path = save_excel(df, metrics_df, suppress_df, sast_df, dast_df, sca_df)
+    excel_path = save_excel(df, metrics_df, suppress_df, duplicates_df, sast_df, dast_df, sca_df)
     create_summary_dashboard(df, excel_path)
     apply_global_formatting(excel_path)
 
